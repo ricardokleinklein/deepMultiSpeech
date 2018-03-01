@@ -1,6 +1,6 @@
-The wavenet_vocoder package is licensed under the MIT "Expat" License:
+The deepMultiSpeech package is licensed under the MIT "Expat" License:
 
-> Copyright (c) 2017: Ryuichi Yamamoto.
+> Copyright (c) 2018: Ricardo Faundez-Carrasco.
 >
 > Permission is hereby granted, free of charge, to any person obtaining
 > a copy of this software and associated documentation files (the

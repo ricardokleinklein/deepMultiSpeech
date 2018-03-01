@@ -1,19 +1,12 @@
-# WaveNet vocoder
+# Deep Multi-Speech model
 
-[![PyPI](https://img.shields.io/pypi/v/wavenet_vocoder.svg)](https://pypi.python.org/pypi/wavenet_vocoder)
-[![Build Status](https://travis-ci.org/r9y9/wavenet_vocoder.svg?branch=master)](https://travis-ci.org/r9y9/wavenet_vocoder)
+The aim of this repository is to provide an implementation of what we've called Deep Multi-Speech, a Deep Learning architecture
+which generates audio samples for several different tasks such as Speech Enhancement and Voice Conversion, using as a 
+vocoder an implementation of Wavenet (https://github.com/r9y9/wavenet_vocoder/).
 
-The goal of the repository is to provide an implementation of the WaveNet vocoder, which can generate high quality raw speech samples conditioned on linguistic or acoustic features.
+See https://github.com/ricardokleinklein/deepMultiSpeech/issues/1 for planned TODOs and current progress.
 
-Audio samples are available at https://r9y9.github.io/wavenet_vocoder/.
-
-See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and current progress.
-
-
-## Highlights
-
-- Focus on local and global conditioning of WaveNet, which is essential for vocoder.
-- Mixture of logistic distributions loss / sampling (experimental)
+The installation process, as well as the general working scheme follows that of the Wavenet implementation.
 
 ## Requirements
 
@@ -27,24 +20,16 @@ See https://github.com/r9y9/wavenet_vocoder/issues/1 for planned TODOs and curre
 The repository contains a core library (PyTorch implementation of the WaveNet) and utility scripts. All the library and its dependencies can be installed by:
 
 ```
-git clone https://github.com/r9y9/wavenet_vocoder
-cd wavenet_vocoder
+https://github.com/ricardokleinklein/deepMultiSpeech.git
+cd deepMultiSpeech
 pip install -e ".[train]"
 ```
-
-If you only need the library part, then you can install it by the following command:
-
-```
-pip install wavenet_vocoder
-```
-
 
 ## Getting started
 
 ### 0. Download dataset
 
-- CMU ARCTIC (en): http://festvox.org/cmu_arctic/
-- LJSpeech (en): https://keithito.com/LJ-Speech-Dataset/
+- Noisy CSTR_VCTK-Corpus: https://datashare.is.ed.ac.uk/handle/10283/2791
 
 ### 1. Preprocessing
 
@@ -53,21 +38,19 @@ In this step, we will extract time-aligned audio and mel-spectrogram.
 Usage:
 
 ```
-python preprocess.py ${dataset_name} ${dataset_path} ${out_dir}
+python preprocess.py ${dataset_path} ${out_dir}
 ```
 
-Supported `${dataset_name}`s for now are
+The specific task the model is trained on is set in `hparams.modal`.
 
-- `cmu_arctic` (multi-speaker)
-- `ljspeech` (single speaker)
-
-Suppose you will want to preprocess CMU ARCTIC dataset and have data in `~/data/cmu_arctic`, then you can preprocess data by:
+In order to preprocess one of the supported datasets, the recommended command is:
 
 ```
-python preprocess.py cmu_arctic ~/data/cmu_arctic ./data/cmu_arctic
+python preprocess.py ${dataset_path} ${out_dir} --hparams="modal="se""
 ```
 
-When this is done, you will see time-aligned extracted features (pairs of audio and mel-spectrogram) in `./data/cmu_arctic`.
+So far the supported tasks are `se` (Speech Enhancement) and `vc` (Voice Conversion). Once finished, the time-aligned pairs of audios and
+conditioning mel-spectrogram can be found in `${out_dir}`.
 
 ### 2. Training
 
@@ -77,29 +60,11 @@ Usage:
 python train.py --data-root=${data-root} --hparams="parameters you want to override"
 ```
 
-Important options:
 
-- `--speaker-id=<n>`: It specifies which speaker of data we use for training. If this is not specified, all training data are used. This should only be specified when you are dealing with a multi-speaker dataset. For example, if you are trying to build a speaker-dependent WaveNet vocoder for speaker `awb` of CMU ARCTIC, then you have to specify `--speaker-id=0`. Speaker ID is automatically assigned as follows:
-
-```py
-In [1]: from nnmnkwii.datasets import cmu_arctic
-
-In [2]: [(i, s) for (i,s) in enumerate(cmu_arctic.available_speakers)]
-Out[2]:
-
-[(0, 'awb'),
- (1, 'bdl'),
- (2, 'clb'),
- (3, 'jmk'),
- (4, 'ksp'),
- (5, 'rms'),
- (6, 'slt')]
-```
-
-#### Training un-conditional WaveNet
+#### Training un-conditional WaveNet (not recommended)
 
 ```
-python train.py --data-root=./data/cmu_arctic/
+python train.py --data-root=./data/se/
     --hparams="cin_channels=-1,gin_channels=-1"
 ```
 
@@ -108,15 +73,15 @@ You have to disable global and local conditioning by setting `gin_channels` and 
 #### Training WaveNet conditioned on mel-spectrogram
 
 ```
-python train.py --data-root=./data/cmu_arctic/ --speaker-id=0 \
+python train.py --data-root=./data/se/ \
     --hparams="cin_channels=80,gin_channels=-1"
 ```
 
 #### Training WaveNet conditioned on mel-spectrogram and speaker embedding
 
 ```
-python train.py --data-root=./data/cmu_arctic/ \
-    --hparams="cin_channels=80,gin_channels=16,n_speakers=7"
+python train.py --data-root=./data/vc/ \
+    --hparams="cin_channels=80,gin_channels=16,n_speakers=4"
 ```
 
 ### 3. Monitor with Tensorboard
@@ -146,7 +111,7 @@ e.g.,
 python synthesis.py --hparams="parameters you want to override" \ 
     checkpoints_awb/checkpoint_step000100000.pth \
     generated/test_awb \
-    --conditional=./data/cmu_arctic/cmu_arctic-mel-00001.npy
+    --conditional=./data/se/features/melspec-00001.npy
 ```
 
 ## Misc
@@ -169,9 +134,9 @@ Options:
 e.g.,
 
 ```
-python evaluate.py --data-root=./data/cmu_arctic/ \
-    ./checkpoints_awb/checkpoint_step000100000.pth \
-    ./generated/cmu_arctic_awb
+python evaluate.py --data-root=./data/se/features/ \
+    ./checkpoints/checkpoint_step000100000.pth \
+    ./generated/se
 ```
 
 ## References
