@@ -1,0 +1,15 @@
+LICENSE.md
+MANIFEST.in
+README.md
+wavenet_vocoder/__init__.py
+wavenet_vocoder/builder.py
+wavenet_vocoder/mixture.py
+wavenet_vocoder/modules.py
+wavenet_vocoder/util.py
+wavenet_vocoder/version.py
+wavenet_vocoder/wavenet.py
+wavenet_vocoder.egg-info/PKG-INFO
+wavenet_vocoder.egg-info/SOURCES.txt
+wavenet_vocoder.egg-info/dependency_links.txt
+wavenet_vocoder.egg-info/requires.txt
+wavenet_vocoder.egg-info/top_level.txt
