@@ -313,6 +313,15 @@ class WaveNet(nn.Module):
         # Local conditioning
         if c is not None and self.upsample_conv is not None:
             assert c is not None
+            _, _, t = c.size()
+            c = c.unsqueeze(dim=1)
+            if self.modality == "se":
+                c = self.se_modality(c)
+                
+            elif self.modality == "vc":
+                c = self.vc_modality(c)
+
+            c = self.conditioning_net(c, self.cin_channels)
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
