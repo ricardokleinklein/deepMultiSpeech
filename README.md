@@ -8,6 +8,10 @@ See https://github.com/ricardokleinklein/deepMultiSpeech/issues/1 for planned TO
 
 The installation process, as well as the general working scheme follows that of the Wavenet implementation.
 
+## General scheme
+
+![general diagram](diagram.png)
+
 ## Requirements
 
 - Python 3
