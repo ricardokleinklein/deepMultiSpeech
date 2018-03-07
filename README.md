@@ -10,7 +10,7 @@ The installation process, as well as the general working scheme follows that of 
 
 ## General scheme
 
-![general diagram](diagram.png)
+![general diagram](images/diagram.png)
 
 ## Requirements
 
