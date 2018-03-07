@@ -131,7 +131,8 @@ class WaveNet(nn.Module):
 
         # Local conditioning net
         num_filters = 2 ** modal_layers
-        self.conditioning_net = LocalConditioningNet(num_filters*cin_channels,
+        cin_channels_post = int(math.ceil(float(self.cin_channels) / num_filters))
+        self.conditioning_net = LocalConditioningNet(num_filters*cin_channels_post,
             local_hidden_size, local_out_channels, cin_channels)
 
         assert layers % stacks == 0
