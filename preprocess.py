@@ -32,7 +32,8 @@ def write_metadata(metadata, out_dir):
     hours = frames / sr / 3600
     print('Wrote %d utterances, %d time steps (%.2f hours)' % (len(metadata), frames, hours))
     print('Max input length (timesteps):  %d' % max(m[2] for m in metadata))
-
+    print('Max target length (timesteps): %d' % max(m[3] for m in metadata))
+    
 if __name__ == "__main__":
     args = docopt(__doc__)
     in_dir = args["<in_dir>"]

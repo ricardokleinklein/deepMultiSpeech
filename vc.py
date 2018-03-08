@@ -9,34 +9,57 @@ from nnmnkwii import preprocessing as P
 from hparams import hparams
 from os.path import exists
 import librosa
+from tqdm import tqdm
 
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
 from hparams import hparams
 
 def _maybe_metadata(in_dir):
-	"""Create metadata for SE files if missed."""
+	"""Create metadat for VC files if missed."""
 	# Check if metadata with data paths.
 	# Tree of the data root dir:
 	# - root
-	#		- train (clean | noisy)
-	#		- test (clean | noisy)
-	if os.path.isfile(os.path.join(in_dir, "metadata.csv")):
-		return
+	#		- train
+	#				- source speakers (clean audios)
+	#				- target speakers [4 selected, 2M-2F] (clean audios)
+	#		- test
+	#				- source speakers [p232(F) and p257(M) if 28spks] (clean audios)
+	#				- target speakers [same 4 selected, 2M-2F] (clean audios)
+	# if os.path.isfile(os.path.join(in_dir, "metadata.csv")):
+	# 	return
 
-	# metadata.csv collects files' paths.
-	subdirs = ("clean", "noisy")
-	files_target = os.listdir(os.path.join(
-		in_dir, subdirs[0]))
-	files_source = os.listdir(os.path.join(
-		in_dir, subdirs[1]))
-	assert len(files_source) == len(files_target)
+	# metadata.csv collects files's paths.
+	subdirs = ("source", "target")
+	source_speakers = ['p232', 'p257']
+	target_speakers = ['p232', 'p257']	# Debugging purposes
 
+	def clean_hidden_files(files):
+		return [file for file in files if not file.startswith('.')]
+
+	def append_path(path, files):
+		return [os.path.join(path, file) for file in files]
+
+	# Target files
+	target_paths = list()
+	for tar_spk in target_speakers:
+		path = os.path.join(in_dir, subdirs[1], tar_spk)
+		spk_files = append_path(path, clean_hidden_files(
+			os.listdir(path)))
+		for file in spk_files:
+			target_paths.append(os.path.join(path, file))
+
+	# Source files
 	with open(os.path.join(in_dir, "metadata.csv"), 'w', encoding='utf-8') as f:
-		for src, target in zip(files_source, files_target):
-			src_path = os.path.join(in_dir, subdirs[1], src)
-			target_path = os.path.join(in_dir, subdirs[0], target)
-			f.write(src_path + "|" + target_path + "\n")
+		for src_spk in source_speakers:
+			path = os.path.join(in_dir, subdirs[0], src_spk)
+			src_files = append_path(path, clean_hidden_files(
+				os.listdir(path)))
+			for src in src_files:
+				src_path = os.path.join(path, src)
+				for target in target_paths:
+					target_id = target.split('/')[-2]
+					f.write(src_path + '|' + target + '|' + target_id + "\n")
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	executor = ProcessPoolExecutor(max_workers=num_workers)
@@ -50,8 +73,10 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 			parts = line.strip().split('|')
 			path_source = parts[0]
 			path_target = parts[1]
+			speaker = parts[2]
 			futures.append(executor.submit(
-				partial(_process_utterance, out_dir, index, path_source, path_target)))
+				partial(_process_utterance, out_dir, 
+					index, path_source, path_target, speaker)))
 			index += 1
 	return [future.result() for future in tqdm(futures)]
 
@@ -107,7 +132,7 @@ def _extract_mel_spectrogram(wav_path):
 
 	return out, mel_spectrogram, timesteps, out_dtype
 
-def _process_utterance(out_dir, index, path_source, path_target):
+def _process_utterance(out_dir, index, path_source, path_target, speaker):
 	sr = hparams.sample_rate
 
 	audio_input, _, timesteps_input, dtype_input = _extract_mel_spectrogram(
@@ -115,17 +140,14 @@ def _process_utterance(out_dir, index, path_source, path_target):
 	audio_target, _, timesteps_target, dtype_target = _extract_mel_spectrogram(
 		path_target)
 
-	# Write files to disk.
+	# Write files to disk
 	input_filename = "source-audio-%05d.npy" % index
 	target_filename = "target-audio-%05d.npy" % index
-	melspec_filename = "melspec-%05d.npy" % index
 
 	np.save(os.path.join(out_dir, input_filename),
 		audio_input.astype(dtype_input), allow_pickle=False)
 	np.save(os.path.join(out_dir, target_filename),
 		audio_target.astype(dtype_target), allow_pickle=False)
-	np.save(os.path.join(out_dir, melspec_filename),
-		mel_target.astype(np.float32), allow_pickle=False)
 
 	return (input_filename, target_filename, 
-		timesteps_input, timesteps_target)
+		timesteps_input, timesteps_target, speaker)
