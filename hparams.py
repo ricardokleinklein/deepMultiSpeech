@@ -133,12 +133,6 @@ hparams = tf.contrib.training.HParams(
 
     # Modality nets:
     modal="se",      # ["se", "vc"]
-    modal_layers=1,
-    is_modal_stride=False,
-
-    # Local conditioning net
-    local_hidden_size=64,
-    local_out_channels=8,
 )
 
 

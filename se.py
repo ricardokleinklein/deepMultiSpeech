@@ -124,8 +124,8 @@ def _process_utterance(out_dir, index, path_source, path_target):
 		audio_input.astype(dtype_input), allow_pickle=False)
 	np.save(os.path.join(out_dir, target_filename),
 		audio_target.astype(dtype_target), allow_pickle=False)
-	np.save(os.path.join(out_dir, melspec_filename),
-		mel_target.astype(np.float32), allow_pickle=False)
+	# np.save(os.path.join(out_dir, melspec_filename),
+		# mel_target.astype(np.float32), allow_pickle=False)
 
 	return (input_filename, target_filename, 
 		timesteps_input, timesteps_target)

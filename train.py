@@ -785,10 +785,6 @@ def build_model():
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
         scalar_input=is_scalar_input(hparams.input_type),
         modal=hparams.modal,
-        modal_layers=hparams.modal_layers,
-        is_modal_stride=hparams.is_modal_stride,
-        local_hidden_size=hparams.local_hidden_size,
-        local_out_channels=hparams.local_out_channels,
     )
     return model
 

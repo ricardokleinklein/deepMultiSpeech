@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: wavenet-vocoder
-Version: 0.0.3+e38e0f2
+Version: 0.0.3+95fd117
 Summary: PyTorch implementation of WaveNet vocoder
 Home-page: UNKNOWN
 Author: UNKNOWN

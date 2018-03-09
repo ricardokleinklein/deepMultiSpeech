@@ -15,7 +15,7 @@ from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
 
 from .modules import SepConv, ConvStep, ConvRes, SpectrogramModality
-from .modules import LocalConditioningNet
+from .modules import BodyNet
 
 
 def _expand_global_features(B, T, g, bct=True):
@@ -95,9 +95,6 @@ class WaveNet(nn.Module):
         scalar_input (Bool): If True, scalar input ([-1, 1]) is expected, otherwise
           quantized one-hot vector is expected.
         modal (str): Task to be performed (["se", "vc"]).
-        modal_layers (int): Number of layers in the modality net.
-        is_modal_stride (Bool): Whether there is striding along the Freq-axis
-          in the modality nets or not.
     """
 
     def __init__(self, out_channels=256, layers=20, stacks=2,
@@ -112,28 +109,11 @@ class WaveNet(nn.Module):
                  freq_axis_kernel_size=3,
                  scalar_input=False,
                  modal="se",
-                 modal_layers=1,
-                 is_modal_stride=False,
-                 local_hidden_size=64,
-                 local_out_channels=8,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
-
-        # Modality nets
-        self.modality = modal
-        self.se_modality = SpectrogramModality(modal_layers,
-            is_modal_stride)
-        self.vc_modality = SpectrogramModality(modal_layers,
-            is_modal_stride)
-
-        # Local conditioning net
-        num_filters = 2 ** modal_layers
-        cin_channels_post = int(math.ceil(float(self.cin_channels) / num_filters))
-        self.conditioning_net = LocalConditioningNet(num_filters*cin_channels_post,
-            local_hidden_size, local_out_channels, cin_channels)
 
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
@@ -218,16 +198,6 @@ class WaveNet(nn.Module):
         g_bct = _expand_global_features(B, T, g, bct=True)
 
         if c is not None and self.upsample_conv is not None:
-            _, _, t = c.size()
-            c = c.unsqueeze(dim=1)
-            if self.modality == "se":
-                c = self.se_modality(c)
-                
-            elif self.modality == "vc":
-                c = self.vc_modality(c)
-
-            c = self.conditioning_net(c, self.cin_channels)
-
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
@@ -314,15 +284,6 @@ class WaveNet(nn.Module):
         # Local conditioning
         if c is not None and self.upsample_conv is not None:
             assert c is not None
-            _, _, t = c.size()
-            c = c.unsqueeze(dim=1)
-            if self.modality == "se":
-                c = self.se_modality(c)
-                
-            elif self.modality == "vc":
-                c = self.vc_modality(c)
-
-            c = self.conditioning_net(c, self.cin_channels)
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:

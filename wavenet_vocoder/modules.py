@@ -288,7 +288,7 @@ class SpectrogramModality(nn.Module):
         return h
 
 
-class LocalConditioningNet(nn.Module):
+class BodyNet(nn.Module):
     """ Bi-LSTM + ConvRes + Linear.
 
     Args:
@@ -302,7 +302,7 @@ class LocalConditioningNet(nn.Module):
     """
     def __init__(self, input_size, hidden_size, 
         out_channels, cin_channels):
-        super(LocalConditioningNet, self).__init__()
+        super(BodyNet, self).__init__()
 
         self.biLSTM = nn.LSTM(input_size, hidden_size,
             batch_first=True, bidirectional=True)
