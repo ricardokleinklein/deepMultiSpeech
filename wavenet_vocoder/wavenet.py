@@ -109,11 +109,20 @@ class WaveNet(nn.Module):
                  freq_axis_kernel_size=3,
                  scalar_input=False,
                  modal="se",
+                 modal_N=8,
+                 modal_stride=0,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
+
+        self.se_modal = SpectrogramModality(modal_N, modal_stride)
+        self.vc_modal = SpectrogramModality(modal_N, modal_stride)
+
+        num_filters = 2 ** modal_N
+        self.body = BodyNet(num_filters, 64, 32, 256)
+
 
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
@@ -207,6 +216,9 @@ class WaveNet(nn.Module):
             assert c.size(-1) == x.size(-1)
 
         # Feed data to network
+        x = x.unsqueeze(dim=1)
+        x = self.se_modal(x)
+        x = self.body(x, 256)
         x = self.first_conv(x)
         skips = None
         for f in self.conv_layers:

@@ -133,6 +133,8 @@ hparams = tf.contrib.training.HParams(
 
     # Modality nets:
     modal="se",      # ["se", "vc"]
+    modal_N=8,
+    modal_stride=0,
 )
 
 

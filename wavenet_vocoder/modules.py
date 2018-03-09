@@ -313,7 +313,7 @@ class BodyNet(nn.Module):
     def forward(self, inputs, cin_channels):
         # B x F x C' x T 
         B, _, C_p, T = inputs.size()
-        inner = Variable(torch.rand(B, cin_channels, T)).cuda()
+        inner = Variable(torch.rand(B, cin_channels, T))
 
         h = inputs.view(B, -1, T)
         h = F.relu(h)

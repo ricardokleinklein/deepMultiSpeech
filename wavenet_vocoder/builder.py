@@ -19,6 +19,8 @@ def wavenet(out_channels=256,
             freq_axis_kernel_size=3,
             scalar_input=False,
             modal="se",
+            modal_N=8,
+            modal_stride=0,
             ):
     from wavenet_vocoder import WaveNet
 
@@ -35,6 +37,8 @@ def wavenet(out_channels=256,
                     freq_axis_kernel_size=freq_axis_kernel_size,
                     scalar_input=scalar_input,
                     modal=modal,
+                    modal_N=8,
+                    modal_stride=0,
                     )
 
     return model
