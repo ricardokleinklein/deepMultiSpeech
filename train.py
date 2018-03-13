@@ -110,12 +110,9 @@ class _NPYDataSource(FileDataSource):
 
     def interest_indices(self, paths):
         indices = np.arange(len(paths))
-        print(paths[0])
-        exit()
-        test_spk = ['28', '29'] # p232 and p257
         train_indices, test_indices = list(), list()
         for i in range(len(paths)):
-            if test_spk[0] in paths[i] or test_spk[1] in paths[i]:
+            if 'test' in paths[i]:
                 test_indices.append(indices[i])
             else:
                 train_indices.append(indices[i])
@@ -369,9 +366,8 @@ def collate_fn(batch):
     Args:
         batch(tuple): List of tuples
             - x[0] (ndarray,int) : list of (T,)
-            - x[1] (ndarray,int) : list of (T,)
-            - x[2] (ndarray,int) : list of (T, D)
-            - x[3] (ndarray,int) : list of (1,), speaker id
+            - x[1] (ndarray,int) : list of (T, D)
+            - x[2] (ndarray,int) : list of (1,), speaker id
     Returns:
         tuple: Tuple of batch
             - x (FloatTensor) : Network inputs (B, C, T)
@@ -907,7 +903,7 @@ if __name__ == "__main__":
 
     data_root = args["--data-root"]
     if data_root is None:
-        data_root = join(dirname(__file__), "data", "ljspeech")
+        raise IOError('data-root path unset')
 
     log_event_path = args["--log-event-path"]
     reset_optimizer = args["--reset-optimizer"]
