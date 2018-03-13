@@ -216,10 +216,6 @@ class WaveNet(nn.Module):
             assert c.size(-1) == x.size(-1)
 
         # Feed data to network
-        x = x.unsqueeze(dim=1)
-        x = self.se_modal(x)
-        x = self.body(x, 256)
-        x = self.first_conv(x)
         skips = None
         for f in self.conv_layers:
             x, h = f(x, c, g_bct)
