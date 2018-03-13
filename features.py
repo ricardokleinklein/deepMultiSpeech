@@ -83,16 +83,16 @@ def _tts_metadata(in_dir, name):
 			spk_id = str(speakers.index(spk))
 			for src in spk_src_files:
 				src_path = join(spk_src_path, src)
-				target_path = src_path.replace(subdir[0], subdir[1])
+				target_path = src_path
 				f.write(src_path + '|' + target_path + '|' + spk_id + '\n')
 		for spk in test_spks:
 			spk_src_path = join(
-				in_dir, phase[1], subdir[0], spk, 'wav')
+				in_dir, phase[1], 'clean', spk, 'wav')
 			spk_src_files = _rm_hiden(os.listdir(spk_src_path))
 			spk_id = str(speakers.index(spk))
 			for src in spk_src_files:
 				src_path = join(spk_src_path, src)
-				target_path = src_path.replace(subdir[0], subdir[1])
+				target_path = src_path
 				f.write(src_path + '|' + target_path + '|' + spk_id + '\n')
 
 
@@ -105,8 +105,10 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	metafile = 'metadata_' + hparams.modal + '.csv'
 	if hparams.modal == "se":
 		_se_metadata(in_dir, metafile)
-	else:
+	elif hparams.modal == "vc":
 		pass
+	else:
+		_tts_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
 		for line in f:
@@ -194,8 +196,13 @@ def _process_utterance(out_dir, index, path_src,
 		melSpec_filename = "source-melSpec-%05d.npy" % index
 		audio_filename = "target-audio-%05d.npy" % index
 
-	np.save(join(out_dir, melSpec_filename),
-		mel_src.astype(np.float32), allow_pickle=False)
+	if hparams.modal != "tts":
+		np.save(join(out_dir, melSpec_filename),
+			mel_src.astype(np.float32), allow_pickle=False)
+	else:
+		np.save(join(out_dir, melSpec_filename),
+			text, allow_pickle=False)
+
 	np.save(join(out_dir, audio_filename),
 		audio_target.astype(dtype_target), allow_pickle=False)
 	
