@@ -111,17 +111,22 @@ class WaveNet(nn.Module):
                  modal="se",
                  modal_N=8,
                  modal_stride=0,
+                 body_hidden_size=64,
+                 body_out_channels=32,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
 
-        # self.se_modal = SpectrogramModality(modal_N, modal_stride)
-        # self.vc_modal = SpectrogramModality(modal_N, modal_stride)
+        self.modal = modal
+        self.se_modal = SpectrogramModality(modal_N, modal_stride)
+        self.vc_modal = SpectrogramModality(modal_N, modal_stride)
+        self.tts_modal = SpectrogramModality(modal_N, modal_stride)
 
-        # num_filters = 2 ** modal_N
-        # self.body = BodyNet(num_filters, 64, 32, 256)
+        num_filters = 2 ** modal_N
+        self.body = BodyNet(num_filters, body_hidden_size,
+            body_out_channels, cin_channels)
 
 
         assert layers % stacks == 0
@@ -207,6 +212,18 @@ class WaveNet(nn.Module):
         g_bct = _expand_global_features(B, T, g, bct=True)
 
         if c is not None and self.upsample_conv is not None:
+            _, _, t = c.size()
+            # B x 1 x C x T
+            c = c.unsqueeze(dim=1)
+            if self.modal == "se":
+                c = self.se_modal(c)
+            elif self.modal == "vc":
+                c = self.vc_modal(c)
+            elif self.modal == "tts":
+                c = self.tts_modal(c)
+
+            c = self.body(c)
+
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
@@ -293,6 +310,17 @@ class WaveNet(nn.Module):
         # Local conditioning
         if c is not None and self.upsample_conv is not None:
             assert c is not None
+            _, _, t = c.size()
+            # B x 1 x C x T
+            c = c.unsqueeze(dim=1)
+            if self.modal == "se":
+                c = self.se_modal(c)
+            elif self.modal == "vc":
+                c = self.vc_modal(c)
+            elif self.modal == "tts":
+                c = self.tts_modal(c)
+
+            c = self.body(c)
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
