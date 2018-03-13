@@ -108,47 +108,63 @@ class _NPYDataSource(FileDataSource):
         self.test_num_samples = test_num_samples
         self.random_state = random_state
 
-    def interest_indices(self, paths, test_size):
+    def interest_indices(self, paths):
         indices = np.arange(len(paths))
-        train_indices = indices[0:-test_size]
-        test_indices = indices[-test_size+1:]
+        print(paths[0])
+        exit()
+        test_spk = ['28', '29'] # p232 and p257
+        train_indices, test_indices = list(), list()
+        for i in range(len(paths)):
+            if test_spk[0] in paths[i] or test_spk[1] in paths[i]:
+                test_indices.append(indices[i])
+            else:
+                train_indices.append(indices[i])
         return train_indices if self.train else test_indices
 
     def collect_files(self):
-        # TODO: include multispeaker
-        # TRAIN
-        meta = join(self.data_root, "train/train.txt")
-        with open(meta, "rb") as f:
+        meta = join(self.data_root, 'train.txt')
+        with open(meta, 'rb') as f:
             lines = f.readlines()
-        l = lines[0].decode("utf-8").split("|")
+        l = lines[0].decode('utf-8').split("|")
         assert len(l) == 4 or len(l) == 5
-        self.multi_speaker = len(l) == 5
-        lengths_train = list(
-            map(lambda l: int(l.decode("utf-8").split("|")[2]), lines))
+        self.multi_speaker = len(l) == 5    # Always expect multispeaker
+        self.lengths = list(
+            map(lambda l: int(l.decode('utf-8').split('|')[2]), lines))
 
-        paths_train = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
-        paths_train = list(map(lambda f: join(self.data_root, "train", f), paths_train))
-        train_indices = np.arange(0, len(paths_train))
+        paths_relative = list(map(lambda l: l.decode('utf-8').split('|')[self.col], lines))
+        paths = list(map(lambda f: join(self.data_root, f), paths_relative))
 
-        # TEST
-        meta = join(self.data_root, "test/train.txt")
-        with open(meta, "rb") as f:
-            lines = f.readlines()
-        l = lines[0].decode("utf-8").split("|")
-        lengths_test = list(
-            map(lambda l: int(l.decode("utf-8").split("|")[2]), lines))
+        if self.multi_speaker:
+            speaker_ids = list(map(lambda l: int(l.decode('utf-8').split('|')[-1]), lines))
+            self.speaker_ids = speaker_ids
+            if self.speaker_id is not None:
+                # Filter by spaker_id
+                # using multi-speaker dataset as a single speaker dataset
+                indices = np.array(speaker_ids) == self.speaker_id
+                paths = list(np.array(paths)[indices])
+                self.lengths = list(np.array(self.lengths)[indices])
 
-        paths_test = list(map(lambda l: l.decode("utf-8").split("|")[self.col], lines))
-        paths_test = list(map(lambda f: join(self.data_root, "test", f), paths_test))
+                # Filter by train/test
+                indices = self.interest_indices(paths)
+                paths = list(np.array(paths)[indices])
+                self.lengths = list(np.array(self.lengths)[indices])
 
-        # MERGE
-        paths = paths_train + paths_test
-        self.lengths = lengths_train + lengths_test
+                # aha, need to cast numpy.int64 to int
+                self.lengths = list(map(int, self.lengths))
+                self.multi_speaker = False
 
-        indices = self.interest_indices(paths, len(paths_test))
+                return paths
+
+        # Filter by train/test
+        indices = self.interest_indices(paths)
         paths = list(np.array(paths)[indices])
-        self.lengths = list(np.array(self.lengths)[indices])
-        self.lengths = list(map(int, self.lengths))
+        lengths_np = list(np.array(self.lengths)[indices])
+        self.lengths = list(map(int, lengths_np))
+
+        if self.multi_speaker:
+            speaker_ids_np = list(np.array(self.speaker_ids)[indices])
+            self.speaker_ids = list(map(int, speaker_ids_np))
+            assert len(paths) == len(self.speaker_ids)
 
         return paths
 
@@ -163,14 +179,9 @@ class RawAudioDataSource(_NPYDataSource):
         super(RawAudioDataSource, self).__init__(data_root, 0, **kwargs)
 
 
-class RawAudioTargetDataSource(_NPYDataSource):
-    def __init__(self, data_root, **kwargs):
-        super(RawAudioTargetDataSource, self).__init__(data_root, 1, **kwargs)
-
-
 class MelSpecDataSource(_NPYDataSource):
     def __init__(self, data_root, **kwargs):
-        super(MelSpecDataSource, self).__init__(data_root, 3, **kwargs)
+        super(MelSpecDataSource, self).__init__(data_root, 1, **kwargs)
 
 
 class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
@@ -221,9 +232,8 @@ class PartialyRandomizedSimilarTimeLengthSampler(Sampler):
 
 
 class PyTorchDataset(object):
-    def __init__(self, X, Y, Mel):
+    def __init__(self, X, Mel):
         self.X = X
-        self.Y = Y
         self.Mel = Mel
         # alias
         self.multi_speaker = X.file_data_source.multi_speaker
@@ -235,7 +245,6 @@ class PyTorchDataset(object):
             mel = self.Mel[idx]
 
         raw_audio = self.X[idx]
-        target_audio = self.Y[idx]
 
         if self.multi_speaker:
             speaker_id = self.X.file_data_source.speaker_ids[idx]
@@ -243,7 +252,7 @@ class PyTorchDataset(object):
             speaker_id = None
 
         # (x,y,c,g)
-        return raw_audio, target_audio, mel, speaker_id
+        return raw_audio, mel, speaker_id
 
     def __len__(self):
         return len(self.X)
@@ -384,7 +393,7 @@ def collate_fn(batch):
     if local_conditioning:
         new_batch = []
         for idx in range(len(batch)):
-            x, y, c, g = batch[idx]
+            x, c, g = batch[idx]
             if hparams.upsample_conditional_features:
                 x = ensure_ready_for_upsampling(x, c)
                 assert_ready_for_upsampling(x, c)
@@ -395,30 +404,28 @@ def collate_fn(batch):
                         s = np.random.randint(0, len(c) - max_time_frames)
                         ts = s * audio.get_hop_size()
                         x = x[ts:ts + audio.get_hop_size() * max_time_frames]
-                        y = y[ts:ts + audio.get_hop_size() * max_time_frames]
                         c = c[s:s + max_time_frames, :]
                         assert_ready_for_upsampling(x, c)
             else:
                 x, c = audio.adjast_time_resolution(x, c)
                 if max_time_steps is not None and len(x) > max_time_steps:
                     s = np.random.randint(0, len(x) - max_time_steps)
-                    x, y, c = x[s:s + max_time_steps], y[s:s + max_time_steps], c[s:s + max_time_steps, :]
-                assert len(x) == len(c) == len(y)
-            new_batch.append((x, y, c, g))
+                    x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
+                assert len(x) == len(c)
+            new_batch.append((x, c, g))
         batch = new_batch
     else:
         new_batch = []
         for idx in range(len(batch)):
-            x, y, c, g = batch[idx]
+            x, c, g = batch[idx]
             x = audio.trim(x)
-            y = audio.trim(y)
             if max_time_steps is not None and len(x) > max_time_steps:
                 s = np.random.randint(0, len(x) - max_time_steps)
                 if local_conditioning:
-                    x, y, c = x[s:s + max_time_steps], y[s:s + max_time_steps], c[s:s + max_time_steps, :]
+                    x, c = x[s:s + max_time_steps], c[s:s + max_time_steps, :]
                 else:
-                    x, y = x[s:s + max_time_steps], y[s:s + max_time_steps]
-            new_batch.append((x, y, c, g))
+                    x = x[s:s + max_time_steps]
+            new_batch.append((x, c, g))
         batch = new_batch
 
     # Lengths
@@ -438,15 +445,15 @@ def collate_fn(batch):
 
     # (B, T)
     if is_mulaw_quantize(hparams.input_type):
-        y_batch = np.array([_pad(y[0], max_input_len) for y in batch], dtype=np.int)
+        y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.int)
     else:
-        y_batch = np.array([_pad(y[0], max_input_len) for y in batch], dtype=np.float32)
+        y_batch = np.array([_pad(x[0], max_input_len) for x in batch], dtype=np.float32)
     assert len(y_batch.shape) == 2
 
     # (B, T, D)
     if local_conditioning:
-        max_len = max([len(x[2]) for x in batch])
-        c_batch = np.array([_pad_2d(x[2], max_len) for x in batch], dtype=np.float32)
+        max_len = max([len(x[1]) for x in batch])
+        c_batch = np.array([_pad_2d(x[1], max_len) for x in batch], dtype=np.float32)
         assert len(c_batch.shape) == 3
         # (B x C x T)
         c_batch = torch.FloatTensor(c_batch).transpose(1, 2).contiguous()
@@ -454,7 +461,7 @@ def collate_fn(batch):
         c_batch = None
 
     if global_conditioning:
-        g_batch = torch.LongTensor([x[3] for x in batch])
+        g_batch = torch.LongTensor([x[1] for x in batch])
     else:
         g_batch = None
 
@@ -844,11 +851,6 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
                                                  test_size=hparams.test_size,
                                                  test_num_samples=hparams.test_num_samples,
                                                  random_state=hparams.random_state))
-        Y = FileSourceDataset(RawAudioTargetDataSource(data_root, speaker_id=speaker_id,
-                                                 train=train,
-                                                 test_size=hparams.test_size,
-                                                 test_num_samples=hparams.test_num_samples,
-                                                 random_state=hparams.random_state))
         if local_conditioning:
             Mel = FileSourceDataset(MelSpecDataSource(data_root, speaker_id=speaker_id,
                                                       train=train,
@@ -856,7 +858,7 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
                                                       test_num_samples=hparams.test_num_samples,
                                                       random_state=hparams.random_state))
 
-            assert len(X) == len(Mel) == len(Y)
+            assert len(X) == len(Mel)
             print("Local conditioning enabled. Shape of a sample: {}.".format(
                 Mel[0].shape))
         else:
@@ -873,14 +875,14 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
             sampler = None
             shuffle = test_shuffle
 
-        dataset = PyTorchDataset(X, Y, Mel)
+        dataset = PyTorchDataset(X, Mel)
         data_loader = data_utils.DataLoader(
             dataset, batch_size=hparams.batch_size,
             num_workers=hparams.num_workers, sampler=sampler, shuffle=shuffle,
             collate_fn=collate_fn, pin_memory=hparams.pin_memory)
 
         speaker_ids = {}
-        for idx, (x, y, c, g) in enumerate(dataset):
+        for idx, (x, c, g) in enumerate(dataset):
             if g is not None:
                 try:
                     speaker_ids[g] += 1

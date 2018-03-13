@@ -1,6 +1,34 @@
 # coding: utf-8
 """
-Preprocess dataset
+Preprocess dataset. The dataset is structured as:
+- root
+    - train
+        - noisy
+            - speakers
+                - txt
+                - wav
+        - clean
+            - speakers
+                - txt
+                - wav
+    - test
+        - noisy
+            - speakers
+                -txt
+                -wav
+        -clean
+            -speakers
+                - txt
+                - wav
+
+The speakers for test and for training are different.
+The metadata generated will be different as well, depending
+on the task to perform: Metadata.csv stores the paths to the
+source and target audio files:
+path_to_source | path_to_target | text | speaker
+
+The resulting file contains the following information:
+target audio | input melSpec | timesteps | text | speaker 
 
 usage: preprocess.py [options] <in_dir> <out_dir>
 
@@ -31,8 +59,8 @@ def write_metadata(metadata, out_dir):
     sr = hparams.sample_rate
     hours = frames / sr / 3600
     print('Wrote %d utterances, %d time steps (%.2f hours)' % (len(metadata), frames, hours))
-    print('Max input length (timesteps):  %d' % max(m[2] for m in metadata))
-    print('Max target length (timesteps): %d' % max(m[3] for m in metadata))
+    print('Max input length:  %d' % max(len(m[3]) for m in metadata))
+    print('Max target length (timesteps): %d' % max(m[2] for m in metadata))
     
 if __name__ == "__main__":
     args = docopt(__doc__)
@@ -55,6 +83,6 @@ if __name__ == "__main__":
 
     print("Sampling frequency: {}".format(hparams.sample_rate))
 
-    assert hparams.modal in ["se", "vc"]
-    mod = importlib.import_module(hparams.modal)
+    assert hparams.modal in ["se", "vc", "tts"]
+    mod = importlib.import_module("features")
     preprocess(mod, in_dir, out_dir, num_workers)

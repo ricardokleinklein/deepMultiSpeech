@@ -117,11 +117,11 @@ class WaveNet(nn.Module):
         self.out_channels = out_channels
         self.cin_channels = cin_channels
 
-        self.se_modal = SpectrogramModality(modal_N, modal_stride)
-        self.vc_modal = SpectrogramModality(modal_N, modal_stride)
+        # self.se_modal = SpectrogramModality(modal_N, modal_stride)
+        # self.vc_modal = SpectrogramModality(modal_N, modal_stride)
 
-        num_filters = 2 ** modal_N
-        self.body = BodyNet(num_filters, 64, 32, 256)
+        # num_filters = 2 ** modal_N
+        # self.body = BodyNet(num_filters, 64, 32, 256)
 
 
         assert layers % stacks == 0
@@ -216,6 +216,7 @@ class WaveNet(nn.Module):
             assert c.size(-1) == x.size(-1)
 
         # Feed data to network
+        x = self.first_conv(x)
         skips = None
         for f in self.conv_layers:
             x, h = f(x, c, g_bct)
