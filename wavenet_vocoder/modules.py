@@ -304,16 +304,18 @@ class BodyNet(nn.Module):
         out_channels, cin_channels):
         super(BodyNet, self).__init__()
 
+        self.cin_channels = cin_channels
+
         self.biLSTM = nn.LSTM(input_size, hidden_size,
             batch_first=True, bidirectional=True)
         self.CNN = ConvRes(1, out_channels)
         self.lineal = nn.Linear(2 * hidden_size * out_channels,
          cin_channels)
 
-    def forward(self, inputs, cin_channels):
+    def forward(self, inputs):
         # B x F x C' x T 
         B, _, C_p, T = inputs.size()
-        inner = Variable(torch.rand(B, cin_channels, T))
+        inner = Variable(torch.rand(B, self.cin_channels, T))
 
         h = inputs.view(B, -1, T)
         h = F.relu(h)
