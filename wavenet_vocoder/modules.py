@@ -288,6 +288,19 @@ class SpectrogramModality(nn.Module):
         return h
 
 
+class TextModality(nn.Module):
+    """ N x (ReLU + bi-LSTM + ReLU + Conv2d).
+
+    Args:
+        N: Number of layers in the modality net.
+    """
+    def __init__(self, N):
+        super(TextModality, self).__init__()
+
+    def forward(self, inputs):
+        pass
+
+
 class BodyNet(nn.Module):
     """ Bi-LSTM + ConvRes + Linear.
 
