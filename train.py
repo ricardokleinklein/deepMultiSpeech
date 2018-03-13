@@ -166,8 +166,6 @@ class _NPYDataSource(FileDataSource):
         return paths
 
     def collect_features(self, path):
-        if self.col == 3 and path[-1] == "\n":
-            path = path.replace("\n","")
         return np.load(path)
 
 
@@ -855,6 +853,8 @@ def get_data_loaders(data_root, speaker_id, test_shuffle=True):
                                                       test_size=hparams.test_size,
                                                       test_num_samples=hparams.test_num_samples,
                                                       random_state=hparams.random_state))
+
+            
 
             assert len(X) == len(Mel)
             print("Local conditioning enabled. Shape of a sample: {}.".format(
