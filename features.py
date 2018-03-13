@@ -69,6 +69,9 @@ def _tts_metadata(in_dir, name):
 	def _rm_hiden(files):
 		return [file for file in files if not file.startswith(".")]
 
+	def _point_txt(wav_path):
+		return wav_path.replace('wav', 'txt')
+
 	train_spks = _rm_hiden(os.listdir(
 		join(in_dir, phase[0], 'clean')))
 	test_spks = _rm_hiden(os.listdir(
@@ -84,7 +87,12 @@ def _tts_metadata(in_dir, name):
 			for src in spk_src_files:
 				src_path = join(spk_src_path, src)
 				target_path = src_path
-				f.write(src_path + '|' + target_path + '|' + spk_id + '\n')
+				txt_path = _point_txt(src_path)
+				txt = open(txt_path, 'r', encoding='utf-8')
+				text = txt.read()[:-1]
+				txt.close()
+				f.write(src_path + '|' + target_path + '|' + 
+					text + '|' + spk_id + '\n')
 		for spk in test_spks:
 			spk_src_path = join(
 				in_dir, phase[1], 'clean', spk, 'wav')
@@ -93,7 +101,11 @@ def _tts_metadata(in_dir, name):
 			for src in spk_src_files:
 				src_path = join(spk_src_path, src)
 				target_path = src_path
-				f.write(src_path + '|' + target_path + '|' + spk_id + '\n')
+				txt_path = _point_txt(src_path)
+				txt = open(txt_path, 'r', encoding='utf-8')
+				text = txt.read()[:-1]
+				f.write(src_path + '|' + target_path + '|' + 
+					text + '|' + spk_id + '\n')
 
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
