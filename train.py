@@ -790,6 +790,8 @@ def build_model():
         modal=hparams.modal,
         modal_N=8,
         modal_stride=0,
+        body_hidden_size=64,
+        body_out_channels=32,
     )
     return model
 
