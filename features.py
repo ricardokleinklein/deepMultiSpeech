@@ -223,7 +223,7 @@ def _process_utterance(out_dir, index, path_src,
 		path_target)
 
 	# Write files to disk
-	if speaker not in test_id:
+	if int(speaker) in test_id:
 		melSpec_filename = "source-melSpec-test-%05d.npy" % index
 		audio_filename = "target-audio-test-%05d.npy" % index
 	else:
