@@ -122,6 +122,7 @@ class WaveNet(nn.Module):
 
         self.modal = modal
         self.se_modal = SpectrogramModality(modal_N, modal_stride)
+        self.vc_modal = SpectrogramModality(modal_N, modal_stride)
 
         num_filters = 2 ** modal_N
         self.body = BodyNet(num_filters, body_hidden_size,
