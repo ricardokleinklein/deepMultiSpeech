@@ -298,7 +298,7 @@ class TextModality(nn.Module):
         super(TextModality, self).__init__()
 
     def forward(self, inputs):
-        pass
+        raise NotImplementedError
 
 
 class BodyNet(nn.Module):
@@ -326,6 +326,9 @@ class BodyNet(nn.Module):
          cin_channels)
 
     def forward(self, inputs):
+        assert len(inputs.size()) == 3 or len(inputs.size()) == 4
+        if len(inputs.size()) == 3:
+            inputs = inputs. unsqueeze(dim=1)
         # B x F x C' x T 
         B, _, C_p, T = inputs.size()
         inner = Variable(torch.rand(B, self.cin_channels, T))

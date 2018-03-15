@@ -15,6 +15,7 @@ from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
 
 from .modules import SepConv, ConvStep, ConvRes, SpectrogramModality
+from .modules import TextModality
 from .modules import BodyNet
 
 
@@ -121,8 +122,6 @@ class WaveNet(nn.Module):
 
         self.modal = modal
         self.se_modal = SpectrogramModality(modal_N, modal_stride)
-        self.vc_modal = SpectrogramModality(modal_N, modal_stride)
-        self.tts_modal = TextModality(modal_N)
 
         num_filters = 2 ** modal_N
         self.body = BodyNet(num_filters, body_hidden_size,
@@ -219,8 +218,6 @@ class WaveNet(nn.Module):
                 c = self.se_modal(c)
             elif self.modal == "vc":
                 c = self.vc_modal(c)
-            elif self.modal == "tts":
-                c = self.tts_modal(c)
 
             c = self.body(c)
 
@@ -315,12 +312,9 @@ class WaveNet(nn.Module):
             c = c.unsqueeze(dim=1)
             if self.modal == "se":
                 c = self.se_modal(c)
-            elif self.modal == "vc":
-                c = self.vc_modal(c)
-            elif self.modal == "tts":
-                c = self.tts_modal(c)
 
             c = self.body(c)
+
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
