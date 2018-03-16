@@ -16,15 +16,35 @@ from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
 from hparams import hparams
 
+src_spks = ['p226', 'p227']
 target_speakers = ['p287', 'p282', 'p278', 'p277']
 test_spks = ['p232', 'p257']
 SPKS = target_speakers + test_spks
 test_id = [SPKS.index(spk) for spk in test_spks]
 
+def _dtw(melSpec_src, melSpec_target):
+	src = np.swapaxes(melSpec_src, 0, 1)
+	dst = np.swapaxes(melSpec_target, 0, 1)
+
+	_, wp = librosa.core.dtw(src, dst)
+
+	indices = list()
+	tgt_wp = list()
+
+	for al in wp:
+		if al[1] not in tgt_wp:
+			tgt_wp.append(al[1])
+			indices.append((al[0]))
+
+	new_src = np.take(src, indices[::-1], axis=1)
+	
+	if new_src.shape[1] < dst.shape[1]:
+		new_src.append(new_src[-1])
+
+	return new_src
 
 def _se_metadata(in_dir, name):
 	"""Create metada.csv file for speech enhancement task."""
-	phase = ('train', 'test')
 	subdir = ('noisy', 'clean')
 
 	def _rm_hidden(files):
@@ -35,7 +55,7 @@ def _se_metadata(in_dir, name):
 
 	with open(join(in_dir, name), 'w', encoding='utf-8') as f:
 		for spk in SPKS:
-			stage = phase[0] if spk in target_speakers else phase[1]
+			stage = 'train' if spk in target_speakers else 'test'
 			spk_src_path = join(
 				in_dir, stage, subdir[0], spk, 'wav')
 			spk_src_files = _rm_hidden(os.listdir(spk_src_path))
@@ -53,13 +73,12 @@ def _se_metadata(in_dir, name):
 def _vc_metadata(in_dir, name):
 	"""Create metadata.csv file for Voice Conversion task."""
 	phase = ('train', 'test')
-	target_speakers = ['p287', 'p282', 'p278', 'p277']
 
 	def _rm_hidden(files):
 		return [file for file in files if not file.startswith(".")]
 
-	def _point_txt(wav_path):
-		return wav_path.replace('wav', 'txt')
+	def _point_wav(txt_path):
+		return txt_path.replace('txt', 'wav')
 
 	def _rm_spaces(string):
 		return string.replace(' ','').replace('\n','')
@@ -69,6 +88,7 @@ def _vc_metadata(in_dir, name):
 		string = [s for s in string if s not in punctuation]
 		return ''.join(string).lower()
 
+
 	def collect_sentences(spk_path):
 		refs = list()
 		for file in _rm_hidden(os.listdir(spk_path)):
@@ -77,60 +97,31 @@ def _vc_metadata(in_dir, name):
 				refs.append(txt)
 		return refs
 
-	def match_sentences(ref, cand_path):
-		cand_files = _rm_hidden(os.listdir(cand_path))
-		for file in cand_files:
-			path = join(cand_path, file)
-			with open(path, 'r', encoding='utf-8') as f:
-				cand = _rm_punctuation(f.read())
-				if ref == cand:
-					return True, path
-		return False, path
 
-	train_spks = _rm_hidden(os.listdir(
-		join(in_dir, phase[0], 'clean')))
-	train_spks = [spk for spk in train_spks if spk not in target_speakers]
-	test_spks = _rm_hidden(os.listdir(
-		join(in_dir, phase[1], 'clean')))
-	all_speakers = train_spks + target_speakers + test_spks
-	speakers = train_spks + target_speakers + test_spks
-
-	refs = collect_sentences(join(in_dir, phase[0], 'clean/p226/txt'))
-
-	for ref in refs:
-		for spk in all_speakers:
-			cand_path = join(in_dir, phase[0], 'clean', spk, 'txt') if spk in train_spks\
-				or spk in target_speakers else join(in_dir, phase[1], 'clean', spk, 'txt')
-			if not match_sentences(ref, cand_path)[0]:
-				refs.remove(ref)
-				break
-	
-	train_set = list()
-	test_set = list()
-	for ref in tqdm(refs):
-		for src_spk in train_spks:
-			src_spk_path = join(in_dir, phase[0], 'clean', src_spk, 'txt')
-			for file in _rm_hidden(os.listdir(src_spk_path)):
-				with open(join(src_spk_path, file), 'r', encoding='utf-8') as f:
+	def make_sentence_dict(speakers):
+		sentences = dict()
+		for spk in speakers:
+			phase = 'train' if spk not in test_spks else 'test'
+			spk_path = join(in_dir, phase, 'clean', spk, 'txt')
+			files = _rm_hidden(os.listdir(spk_path))
+			for file in files:
+				file_path = join(spk_path, file)
+				with open(file_path, 'r', encoding='utf-8') as f:
 					txt = _rm_punctuation(f.read())
-					path_ref = join(src_spk_path, file).replace('txt', 'wav')
-					if txt == ref:
-						for tgt_spk in target_speakers:
-							spk_id = str(speakers.index(tgt_spk))
-							tgt_spk_path = join(in_dir, phase[0], 'clean', tgt_spk, 'txt')
-							state, tgt_path = match_sentences(ref, tgt_spk_path)
-							path_target = tgt_path.replace('txt','wav')
-							spk_id = str(speakers.index(tgt_spk))
-							if state:
-								train_set.append((path_ref, path_target, ref, spk_id))
-							else:
-								test_set.append((path_ref, path_target, ref, spk_id))
+					if txt not in sentences:
+						sentences[txt] = 1
+					else:
+						sentences[txt] += 1
+		return sentences
 
-	data = train_set + test_set
-	with open(join(in_dir, name), 'w', encoding='utf-8') as f:
-		for d in data:
-			f.write(d[0] + '|' + d[1] + '|' + d[2] + '|' + d[3] + '\n')
-						
+	src_spks = _rm_hidden(os.listdir(join(in_dir, 'train', 'clean')))
+	src_spks = [spk for spk in src_spks if spk not in target_speakers]
+	speakers = src_spks + SPKS
+	sentences = make_sentence_dict(speakers)
+	num_speakers = len(speakers)
+	print([key for key in sentences.keys() if sentences[key] == num_speakers])
+	exit()
+	
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	executor = ProcessPoolExecutor(max_workers=num_workers)
@@ -143,8 +134,6 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 		_se_metadata(in_dir, metafile)
 	elif hparams.modal == "vc":
 		_vc_metadata(in_dir, metafile)
-	else:
-		_tts_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
 		for line in f:
@@ -219,8 +208,11 @@ def _process_utterance(out_dir, index, path_src,
 
 	_, mel_src, timesteps_src, dtype_src = _extract_melSpec(
 		path_src)
-	audio_target, _, timesteps_target, dtype_target = _extract_melSpec(
+	audio_target, mel_target, timesteps_target, dtype_target = _extract_melSpec(
 		path_target)
+
+	if hparams.modal == "vc":
+		mel_src = _dtw(mel_src, mel_target)
 
 	# Write files to disk
 	if int(speaker) in test_id:
@@ -234,7 +226,6 @@ def _process_utterance(out_dir, index, path_src,
 		mel_src.astype(np.float32), allow_pickle=False)
 	np.save(join(out_dir, audio_filename),
 		audio_target.astype(dtype_target), allow_pickle=False)
-	
 
 	return (audio_filename, melSpec_filename, 
 		timesteps_target, text, speaker)
