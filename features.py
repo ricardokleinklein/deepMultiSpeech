@@ -16,10 +16,10 @@ from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
 from hparams import hparams
 
-src_spks = ['p226', 'p227']
+src_spks = ['p226', 'p227', 'p228', 'p230', 'p231', 'p233']
 target_speakers = ['p287', 'p282', 'p278', 'p277']
 test_spks = ['p232', 'p257']
-SPKS = target_speakers + test_spks
+SPKS =  src_spks + target_speakers + test_spks
 test_id = [SPKS.index(spk) for spk in test_spks]
 
 def _dtw(melSpec_src, melSpec_target):
@@ -43,6 +43,7 @@ def _dtw(melSpec_src, melSpec_target):
 
 	return new_src
 
+
 def _se_metadata(in_dir, name):
 	"""Create metada.csv file for speech enhancement task."""
 	subdir = ('noisy', 'clean')
@@ -55,24 +56,24 @@ def _se_metadata(in_dir, name):
 
 	with open(join(in_dir, name), 'w', encoding='utf-8') as f:
 		for spk in SPKS:
-			stage = 'train' if spk in target_speakers else 'test'
-			spk_src_path = join(
-				in_dir, stage, subdir[0], spk, 'wav')
-			spk_src_files = _rm_hidden(os.listdir(spk_src_path))
-			spk_id = str(SPKS.index(spk))
-			for src in spk_src_files:
-				src_path = join(spk_src_path, src)
-				target_path = src_path.replace(subdir[0], subdir[1])
-				txt_path = _point_txt(src_path)
-				txt = open(txt_path, 'r', encoding='utf-8')
-				text = txt.read()[:-1]
-				f.write(src_path + '|' + target_path + '|' + 
-					text + '|' + spk_id + '\n')
+			if  spk not in src_spks:
+				stage = 'train' if spk in target_speakers else 'test'
+				spk_src_path = join(
+					in_dir, stage, subdir[0], spk, 'wav')
+				spk_src_files = _rm_hidden(os.listdir(spk_src_path))
+				spk_id = str(SPKS.index(spk))
+				for src in spk_src_files:
+					src_path = join(spk_src_path, src)
+					target_path = src_path.replace(subdir[0], subdir[1])
+					txt_path = _point_txt(src_path)
+					txt = open(txt_path, 'r', encoding='utf-8')
+					text = txt.read()[:-1]
+					f.write(src_path + '|' + target_path + '|' + 
+						text + '|' + spk_id + '\n')
 
 
 def _vc_metadata(in_dir, name):
 	"""Create metadata.csv file for Voice Conversion task."""
-	phase = ('train', 'test')
 
 	def _rm_hidden(files):
 		return [file for file in files if not file.startswith(".")]
@@ -88,40 +89,34 @@ def _vc_metadata(in_dir, name):
 		string = [s for s in string if s not in punctuation]
 		return ''.join(string).lower()
 
-
-	def collect_sentences(spk_path):
-		refs = list()
-		for file in _rm_hidden(os.listdir(spk_path)):
-			with open(join(spk_path, file), 'r', encoding='utf-8') as f:
-				txt = _rm_punctuation(f.read())
-				refs.append(txt)
-		return refs
-
-
-	def make_sentence_dict(speakers):
-		sentences = dict()
-		for spk in speakers:
-			phase = 'train' if spk not in test_spks else 'test'
+	speakers = src_spks + target_speakers + test_spks
+	refs = list()
+	for spk in speakers:
+		phase = 'train' if spk in src_spks else 'test'
+		if spk in src_spks or spk in test_spks:
 			spk_path = join(in_dir, phase, 'clean', spk, 'txt')
-			files = _rm_hidden(os.listdir(spk_path))
-			for file in files:
-				file_path = join(spk_path, file)
-				with open(file_path, 'r', encoding='utf-8') as f:
-					txt = _rm_punctuation(f.read())
-					if txt not in sentences:
-						sentences[txt] = 1
-					else:
-						sentences[txt] += 1
-		return sentences
+			paths = _rm_hidden(os.listdir(spk_path))
+			for file in paths:
+				ref_path = join(spk_path, file)
+				with open(ref_path, 'r', encoding='utf-8') as f:
+					ref = _rm_punctuation(f.read())
+					for tgt in target_speakers:
+						spk_id = SPKS.index(tgt)
+						tgt_path = join(in_dir, 'train', 'clean', tgt, 'txt')
+						tgt_files = _rm_hidden(os.listdir(tgt_path))
+						for file_tgt in tgt_files:
+							cand_path = join(tgt_path, file_tgt)
+							with open(cand_path, 'r', encoding='utf-8') as f2:
+								txt = f2.read()[:-1]
+								cand = _rm_punctuation(txt)
+								if ref == cand:
+									refs.append((_point_wav(ref_path), 
+										_point_wav(cand_path), txt, str(spk_id)))
 
-	src_spks = _rm_hidden(os.listdir(join(in_dir, 'train', 'clean')))
-	src_spks = [spk for spk in src_spks if spk not in target_speakers]
-	speakers = src_spks + SPKS
-	sentences = make_sentence_dict(speakers)
-	num_speakers = len(speakers)
-	print([key for key in sentences.keys() if sentences[key] == num_speakers])
-	exit()
-	
+	with open(join(in_dir, name), 'w', encoding='utf-8') as f:
+		for r in refs:
+			f.write(r[0] + '|' + r[1] + '|' + r[2] + '|' + r[3] + '\n')
+
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	executor = ProcessPoolExecutor(max_workers=num_workers)
@@ -205,14 +200,15 @@ def _extract_melSpec(wav_path):
 def _process_utterance(out_dir, index, path_src, 
 	path_target, text, speaker):
 	sr = hparams.sample_rate
-
+	# print(path_src, path_target)
 	_, mel_src, timesteps_src, dtype_src = _extract_melSpec(
 		path_src)
 	audio_target, mel_target, timesteps_target, dtype_target = _extract_melSpec(
 		path_target)
 
-	if hparams.modal == "vc":
-		mel_src = _dtw(mel_src, mel_target)
+	# if hparams.modal == "vc":
+	# 	mel_src = _dtw(mel_src, mel_target)
+	# 	exit()
 
 	# Write files to disk
 	if int(speaker) in test_id:
