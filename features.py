@@ -20,28 +20,32 @@ src_spks = ['p226', 'p227', 'p228', 'p230', 'p231', 'p233']
 target_speakers = ['p287', 'p282', 'p278', 'p277']
 test_spks = ['p232', 'p257']
 SPKS =  src_spks + target_speakers + test_spks
+target_id = [SPKS.index(spk) for spk in target_speakers]
 test_id = [SPKS.index(spk) for spk in test_spks]
 
+def _swapaxes(x):
+	return np.swapaxes(x, 0, 1)
+
+
 def _dtw(melSpec_src, melSpec_target):
-	src = np.swapaxes(melSpec_src, 0, 1)
-	dst = np.swapaxes(melSpec_target, 0, 1)
-
+	src = _swapaxes(melSpec_src)
+	dst = _swapaxes(melSpec_target)
 	_, wp = librosa.core.dtw(src, dst)
+	wp = wp[::-1]
 
-	indices = list()
-	tgt_wp = list()
+	dst_frames = dst.shape[1]
+	closest_dst_frame = wp[0, 1]
+	src_frames = list()
 
-	for al in wp:
-		if al[1] not in tgt_wp:
-			tgt_wp.append(al[1])
-			indices.append((al[0]))
+	for f in range(dst_frames):
+		if f in wp[:,1]:
+			src_frame = src[:, wp[wp[:,1].tolist().index(f), 0]]
+			closest_dst_frame = f
+		else:
+			src_frame = src[:, wp[wp[:,1].tolist().index(closest_dst_frame), 0]]
+		src_frames.append(src_frame)
 
-	new_src = np.take(src, indices[::-1], axis=1)
-	
-	if new_src.shape[1] < dst.shape[1]:
-		new_src.append(new_src[-1])
-
-	return new_src
+	return np.array(src_frames)
 
 
 def _se_metadata(in_dir, name):
@@ -123,12 +127,11 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	futures = []
 	index = 1
 
-	# TODO: metadata.csv creation
 	metafile = 'metadata_' + hparams.modal + '.csv'
-	if hparams.modal == "se":
-		_se_metadata(in_dir, metafile)
-	elif hparams.modal == "vc":
-		_vc_metadata(in_dir, metafile)
+	# if hparams.modal == "se":
+	# 	_se_metadata(in_dir, metafile)
+	# elif hparams.modal == "vc":
+	# 	_vc_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
 		for line in f:
@@ -206,17 +209,26 @@ def _process_utterance(out_dir, index, path_src,
 	audio_target, mel_target, timesteps_target, dtype_target = _extract_melSpec(
 		path_target)
 
-	# if hparams.modal == "vc":
-	# 	mel_src = _dtw(mel_src, mel_target)
-	# 	exit()
+	if hparams.modal == "vc":
+		mel_src = _dtw(mel_src, mel_target)
 
 	# Write files to disk
-	if int(speaker) in test_id:
-		melSpec_filename = "source-melSpec-test-%05d.npy" % index
-		audio_filename = "target-audio-test-%05d.npy" % index
-	else:
-		melSpec_filename = "source-melSpec-%05d.npy" % index
-		audio_filename = "target-audio-%05d.npy" % index
+	if hparams.modal == "se":
+		if int(speaker) in test_id:
+			melSpec_filename = "source-melSpec-test-%05d.npy" % index
+			audio_filename = "target-audio-test-%05d.npy" % index
+		else:
+			melSpec_filename = "source-melSpec-%05d.npy" % index
+			audio_filename = "target-audio-%05d.npy" % index
+	if hparams.modal == "vc":
+		if test_spks[0] in path_src or test_spks[1] in path_src:
+			melSpec_filename = "source-melSpec-test-%05d.npy" % index
+			audio_filename = "target-audio-test-%05d.npy" % index
+		else:
+			melSpec_filename = "source-melSpec-%05d.npy" % index
+			audio_filename = "target-audio-%05d.npy" % index
+
+
 
 	np.save(join(out_dir, melSpec_filename),
 		mel_src.astype(np.float32), allow_pickle=False)
