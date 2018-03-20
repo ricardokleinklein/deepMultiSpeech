@@ -84,9 +84,8 @@ if __name__ == "__main__":
     dst_dir_name = basename(os.path.normpath(dst_dir))
 
     generated_utterances = {}
-    for idx, (x, y, c, g) in enumerate(test_dataset):
-        input_audio_path = test_dataset.X.collected_files[idx][0]
-        target_audio_path = test_dataset.Y.collected_files[idx][0]
+    for idx, (x, c, g) in enumerate(test_dataset):
+        target_audio_path = test_dataset.X.collected_files[idx][0]
         if num_utterances > 0 and g is not None:
             try:
                 generated_utterances[g] += 1
@@ -99,7 +98,6 @@ if __name__ == "__main__":
             def _tqdm(x): return x
         else:
             _tqdm = tqdm
-            print("Input audio is {}".format(input_audio_path))
             print("Target audio is {}".format(target_audio_path))
             if c is not None:
                 print("Local conditioned by {}".format(test_dataset.Mel.collected_files[idx][0]))
@@ -112,14 +110,10 @@ if __name__ == "__main__":
                 idx, checkpoint_name, file_name_suffix))
             target_wav_path = join(dst_dir, "{}_{}{}_target.wav".format(
                 idx, checkpoint_name, file_name_suffix))
-            source_wav_path = join(dst_dir, "{}_{}{}_source.wav".format(
-                idx, checkpoint_name, file_name_suffix))
         else:
             dst_wav_path = join(dst_dir, "speaker{}_{}_{}{}_predicted.wav".format(
                 g, idx, checkpoint_name, file_name_suffix))
             target_wav_path = join(dst_dir, "speaker{}_{}_{}{}_target.wav".format(
-                g, idx, checkpoint_name, file_name_suffix))
-            source_wav_path = join(dst_dir, "speaker{}_{}_{}{}_source.wav".format(
                 g, idx, checkpoint_name, file_name_suffix))
 
         # Generate
@@ -130,13 +124,9 @@ if __name__ == "__main__":
         librosa.output.write_wav(dst_wav_path, waveform, sr=hparams.sample_rate)
         if is_mulaw_quantize(hparams.input_type):
             x = P.inv_mulaw_quantize(x, hparams.quantize_channels)
-            y = P.inv_mulaw_quantize(y, hparams.quantize_channels)
         elif is_mulaw(hparams.input_type):
             x = P.inv_mulaw(x, hparams.quantize_channels)
-            y = P.inv_mulaw(y, hparams.quantize_channels)
-        librosa.output.write_wav(source_wav_path, x, sr=hparams.sample_rate)
-        librosa.output.write_wav(target_wav_path, y, sr=hparams.sample_rate)
-        
+        librosa.output.write_wav(target_wav_path, x, sr=hparams.sample_rate)
 
         # log
         if output_html:
