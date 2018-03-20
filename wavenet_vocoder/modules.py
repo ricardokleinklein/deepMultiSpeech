@@ -322,8 +322,10 @@ class BodyNet(nn.Module):
         self.biLSTM = nn.LSTM(input_size, hidden_size,
             batch_first=True, bidirectional=True)
         self.CNN = ConvRes(1, out_channels)
-        self.lineal = nn.Linear(2 * hidden_size * out_channels,
-         cin_channels)
+        self.lineal1 = nn.Linear(2 * hidden_size * out_channels,
+         9 * cin_channels)
+        self.lineal2 = nn.Linear(9 * cin_channels, 3 * cin_channels)
+        self.lineal3 = nn.Linear(3 * cin_channels, cin_channels)
 
     def forward(self, inputs):
         assert len(inputs.size()) == 3 or len(inputs.size()) == 4
@@ -331,19 +333,35 @@ class BodyNet(nn.Module):
             inputs = inputs. unsqueeze(dim=1)
         # B x F x C' x T 
         B, _, C_p, T = inputs.size()
-        inner = Variable(torch.rand(B, self.cin_channels, T))
+        inner1 = Variable(torch.rand(B, 9 * self.cin_channels, T))
+        inner2 = Variable(torch.rand(B, 3 * self.cin_channels, T))
+        inner3 = Variable(torch.rand(B, self.cin_channels, T))
 
+        # B x C'' x T
         h = inputs.view(B, -1, T)
         h = F.relu(h)
+        # B x T x C''
         h = h.permute(0,2,1)
         h, _ = self.biLSTM(h)
+        # B x 1 x T x 2H
         h = h.permute(0,2,1).unsqueeze(1)
+        h = F.relu(h)
         h = self.CNN(h)
+        # B x C''' x T
         h = h.view(B, -1, T)
+        # B x C x T
         for i in range(B):
             for j in range(T):
-                inner[i,:,j] = self.lineal(h[i,:,j])
-        h = F.relu(inner)
+                inner1[i,:,j] = self.lineal1(h[i,:,j])
+        h = F.relu(inner1)
+        for i in range(B):
+            for j in range(T):
+                inner2[i,:,j] = self.lineal2(h[i,:,j])
+        h = F.relu(inner2)
+        for i in range(B):
+            for j in range(T):
+                inner3[i,:,j] = self.lineal3(h[i,:,j])
+        h = F.relu(inner3)
         return h
 
 
