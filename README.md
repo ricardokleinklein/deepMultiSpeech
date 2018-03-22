@@ -24,7 +24,7 @@ The installation process, as well as the general working scheme follows that of 
 The repository contains a core library (PyTorch implementation of the WaveNet) and utility scripts. All the library and its dependencies can be installed by:
 
 ```
-https://github.com/ricardokleinklein/deepMultiSpeech.git
+git clone https://github.com/ricardokleinklein/deepMultiSpeech.git
 cd deepMultiSpeech
 pip install -e ".[train]"
 ```

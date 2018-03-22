@@ -66,8 +66,8 @@ def _download_dir(url, path):
 def _download_data(data_dir):
 	for phase in URLS:
 		for url in URLS[phase]:
-			# _download_dir(url, data_dir)
-			print(_extract_name(url))
+			print("Downloading %s" % _extract_name(url))
+			_download_dir(url, data_dir)
 
 
 def _maybe_download(path):
