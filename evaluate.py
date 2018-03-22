@@ -117,6 +117,9 @@ if __name__ == "__main__":
                 g, idx, checkpoint_name, file_name_suffix))
 
         # Generate
+        global_conditioning = hparams.gin_channels > 0
+        if not global_conditioning:
+            g = None
         waveform = wavegen(model, length, c=c, g=g, initial_value=initial_value,
                            fast=True, tqdm=_tqdm)
 
