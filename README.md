@@ -44,7 +44,7 @@ Usage:
 python download.py ${dataset_path}
 ```
 
-Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}`.
+Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}`. Also the additional files `se_metadata.csv` and `vc_metadata.csv` should be at the root of `${dataset_path}`.
 
 e.g.,
 
