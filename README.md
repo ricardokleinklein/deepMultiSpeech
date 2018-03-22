@@ -33,7 +33,24 @@ pip install -e ".[train]"
 
 ### 0. Download dataset
 
+Data required can be found in the following address.
 - Noisy CSTR_VCTK-Corpus: https://datashare.is.ed.ac.uk/handle/10283/2791
+
+Alternatively you can download all the files and build the metadata files
+required in later stages.
+
+Usage:
+```
+python download.py ${dataset_path}
+```
+
+Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}`.
+
+e.g.,
+
+```
+python download.py ./dataset
+```
 
 ### 1. Preprocessing
 
