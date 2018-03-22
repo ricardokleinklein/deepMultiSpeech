@@ -1,6 +1,6 @@
 # Deep Multi-Speech model
 
-The aim of this repository is to provide an implementation of what we've called Deep Multi-Speech, a Deep Learning architecture
+The aim of this repository is to provide an implementation of what we've called Deep MultiSpeech, a Deep Learning architecture
 which generates audio samples for several different tasks such as Speech Enhancement and Voice Conversion, using as a 
 vocoder an implementation of Wavenet (https://github.com/r9y9/wavenet_vocoder/).
 
@@ -14,10 +14,14 @@ The installation process, as well as the general working scheme follows that of 
 
 ## Requirements
 
+This packages and/or frameworks must be installed by the user before proceeding further.
+
 - Python 3
 - CUDA >= 8.0
 - PyTorch >= v0.3
 - TensorFlow >= v1.3
+
+Please make sure you have them properly installed at this point.
 
 ## Installation
 
@@ -49,12 +53,12 @@ Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will 
 e.g.,
 
 ```
-python download.py ./dataset
+python download.py ./data
 ```
 
 ### 1. Preprocessing
 
-In this step, we will extract time-aligned audio and mel-spectrogram.
+In this step, time-aligned audio and mel-spectrogram features will be extracted.
 
 Usage:
 
@@ -62,16 +66,19 @@ Usage:
 python preprocess.py ${dataset_path} ${out_dir}
 ```
 
-The specific task the model is trained on is set in `hparams.modal`.
+The specific task the model is trained on is set by `hparams.modal`.
 
-In order to preprocess one of the supported datasets, the recommended command is:
+e.g.,
 
 ```
-python preprocess.py ${dataset_path} ${out_dir} --hparams="modal="se""
+python preprocess.py ./data ./features/se/ --hparams="modal="se""
+```
+or
+```
+python preprocess.py ./data ./features/vc/ --hparams="modal="vc""
 ```
 
-So far the supported tasks are `se` (Speech Enhancement) and `vc` (Voice Conversion). Once finished, the time-aligned pairs of audios and
-conditioning mel-spectrogram can be found in `${out_dir}`.
+So far the supported tasks are `se` (Speech Enhancement) and `vc` (Voice Conversion). Once finished, the time-aligned pairs of audios and conditioning mel-spectrogram can be found in `${out_dir}`.
 
 ### 2. Training
 
@@ -85,7 +92,7 @@ python train.py --data-root=${data-root} --hparams="parameters you want to overr
 #### Training un-conditional WaveNet (not recommended)
 
 ```
-python train.py --data-root=./data/se/
+python train.py --data-root=./features/se/
     --hparams="cin_channels=-1,gin_channels=-1"
 ```
 
@@ -94,14 +101,14 @@ You have to disable global and local conditioning by setting `gin_channels` and 
 #### Training WaveNet conditioned on mel-spectrogram
 
 ```
-python train.py --data-root=./data/se/ \
+python train.py --data-root=./features/se/ \
     --hparams="cin_channels=80,gin_channels=-1"
 ```
 
 #### Training WaveNet conditioned on mel-spectrogram and speaker embedding
 
 ```
-python train.py --data-root=./data/vc/ \
+python train.py --data-root=./features/vc/ \
     --hparams="cin_channels=80,gin_channels=16,n_speakers=4"
 ```
 
@@ -130,9 +137,9 @@ e.g.,
 
 ```
 python synthesis.py --hparams="parameters you want to override" \ 
-    checkpoints_awb/checkpoint_step000100000.pth \
-    generated/test_awb \
-    --conditional=./data/se/features/melspec-00001.npy
+    ./checkpoints/checkpoint_step000100000.pth \
+    ./generated/ \
+    --conditional=./data/features/se/source-melSpec-00001.npy
 ```
 
 ## Misc
@@ -155,9 +162,9 @@ Options:
 e.g.,
 
 ```
-python evaluate.py --data-root=./data/se/features/ \
+python evaluate.py --data-root=./data/features/se/ \
     ./checkpoints/checkpoint_step000100000.pth \
-    ./generated/se
+    ./generated/se/
 ```
 
 ## References
@@ -167,3 +174,4 @@ python evaluate.py --data-root=./data/se/features/ \
 - [Tamamori, Akira, et al. "Speaker-dependent WaveNet vocoder." Proceedings of Interspeech. 2017.](http://www.isca-speech.org/archive/Interspeech_2017/pdfs/0314.PDF)
 - [Jonathan Shen, Ruoming Pang, Ron J. Weiss, et al, "Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions", arXiv:1712.05884, Dec 2017.](https://arxiv.org/abs/1712.05884)
 - [Wei Ping, Kainan Peng, Andrew Gibiansky, et al, "Deep Voice 3: 2000-Speaker Neural Text-to-Speech", arXiv:1710.07654, Oct. 2017.](https://arxiv.org/abs/1710.07654)
+- [Lukasz Kaiser, Aidan N. Gomez, Noam Shazeer, et al, "One Model to Learn Them All", arXiv:1706.05137, Jun 2017.](https://arxiv.org/abs/1706.05137)
