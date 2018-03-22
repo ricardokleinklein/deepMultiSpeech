@@ -313,6 +313,8 @@ class WaveNet(nn.Module):
             c = c.unsqueeze(dim=1)
             if self.modal == "se":
                 c = self.se_modal(c)
+            elif self.modal == "vc":
+                c = self.vc_modal(c)
 
             c = self.body(c)
 

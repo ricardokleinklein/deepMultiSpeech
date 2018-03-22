@@ -342,6 +342,7 @@ class BodyNet(nn.Module):
         h = F.relu(h)
         # B x T x C''
         h = h.permute(0,2,1)
+        self.biLSTM.flatten_parameters()
         h, _ = self.biLSTM(h)
         # B x 1 x T x 2H
         h = h.permute(0,2,1).unsqueeze(1)
