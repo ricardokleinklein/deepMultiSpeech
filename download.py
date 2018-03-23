@@ -60,6 +60,7 @@ URLS = {'train': ('https://datashare.is.ed.ac.uk/bitstream/handle/10283/2791/cle
 def _rm_hidden(files):
 		return [file for file in files if not file.startswith('.')]
 
+
 def _extract_name(string):
 	string = string.split("/")[-1].split("?")[0]
 	return string
@@ -73,7 +74,7 @@ def _download_data(data_dir):
 	for phase in URLS:
 		for url in URLS[phase]:
 			print("Downloading %s" % _extract_name(url))
-			# _download_dir(url, data_dir)
+			_download_dir(url, data_dir)
 
 
 def _maybe_download(path):
@@ -118,14 +119,15 @@ if __name__ == '__main__':
 
 	download = _maybe_download(data_dir)
 
-	if not download:
+	if download:
 		zip_dir = join(data_dir, 'zip')
-		# _download_data(zip_dir)
+		_download_data(zip_dir)
 		data_dirs = _rm_hidden(os.listdir(zip_dir))
 		unzip_dir = join(data_dir, 'unzip')
 		for d in data_dirs:
 			extract_zip(join(zip_dir, d), unzip_dir)
-
+	
+	print('Finished')
 
 
 
