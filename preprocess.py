@@ -1,25 +1,6 @@
 # coding: utf-8
 """
-Preprocess dataset. The dataset is structured as:
-- root
-    - train
-        - noisy
-            - speakers
-                - txt
-                - wav
-        - clean
-            - speakers
-                - txt
-                - wav
-    - test
-        - noisy
-            - speakers
-                -txt
-                -wav
-        -clean
-            -speakers
-                - txt
-                - wav
+Preprocess dataset to extract audio and mel spectrograms.
 
 The speakers for test and for training are different.
 The metadata generated will be different as well, depending
@@ -83,6 +64,6 @@ if __name__ == "__main__":
 
     print("Sampling frequency: {}".format(hparams.sample_rate))
 
-    assert hparams.modal in ["se", "vc", "tts"]
+    assert hparams.modal in ["se", "vc"]
     mod = importlib.import_module("features")
     preprocess(mod, in_dir, out_dir, num_workers)

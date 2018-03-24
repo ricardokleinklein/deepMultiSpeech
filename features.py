@@ -6,7 +6,6 @@ import audio
 
 from nnmnkwii.io import hts
 from nnmnkwii import preprocessing as P
-from hparams import hparams
 from os.path import exists, join
 import librosa
 from string import punctuation
@@ -16,74 +15,96 @@ from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw
 
 from hparams import hparams
 
-src_spks = ['p226', 'p227', 'p228', 'p230', 'p231', 'p233']
-target_speakers = ['p287', 'p282', 'p278', 'p277']
-test_spks = ['p232', 'p257']
-SPKS =  src_spks + target_speakers + test_spks
-target_id = [SPKS.index(spk) for spk in target_speakers]
-test_id = [SPKS.index(spk) for spk in test_spks]
+# These lists define the set of speakers to use for experiments.
+# User is free to change SRC_SPKS and/or TARGET_SPKS. 
+# Both of them are taken from the train set, whereas the TEST_SPKS
+# are taken separately according to the database.
 
-def _swapaxes(x):
-	return np.swapaxes(x, 0, 1)
+SRC_SPKS = ['p226', 'p227', 'p228', 'p230', 'p231', 'p233']
+TARGET_SPKS = ['p287', 'p282', 'p278', 'p277']
+TEST_SPKS = ['p232', 'p257']
+
+SPKS = SRC_SPKS + TARGET_SPKS + TEST_SPKS
+TARGET_ID = [SPKS.index(spk) for spk in TARGET_SPKS]
+TEST_ID = [SPKS.index(spk) for spk in TEST_SPKS]
+
+def _rm_hidden(files):
+		return [file for file in files if not file.startswith(".")]
 
 
-def _dtw(melSpec_src, melSpec_target):
-	src = _swapaxes(melSpec_src)
-	dst = _swapaxes(melSpec_target)
-	_, wp = librosa.core.dtw(src, dst)
-	wp = wp[::-1]
+def _train_first(dirs):
+		"""Just for convenience, but absolutely unnecessary."""
+		return (dirs[1], dirs[0]) if 'train' in dirs[1] else dirs
 
-	dst_frames = dst.shape[1]
-	closest_dst_frame = wp[0, 1]
-	src_frames = list()
 
-	for f in range(dst_frames):
-		if f in wp[:,1]:
-			src_frame = src[:, wp[wp[:,1].tolist().index(f), 0]]
-			closest_dst_frame = f
-		else:
-			src_frame = src[:, wp[wp[:,1].tolist().index(closest_dst_frame), 0]]
-		src_frames.append(src_frame)
-
-	return np.array(src_frames)
+def _find_interest_dirs(path, task):
+	interest_dirs = list()
+	try:
+		for d in _rm_hidden(os.listdir(path)):
+			if task == "se" and 'txt' not in d and 'noisy' in d:
+				# Keep noisy only
+				interest_dirs.append(d)
+			elif task == "vc" and "noisy" not in d and 'txt' in d:
+				# Keep txt only
+				interest_dirs.append(d)
+	except:
+		raise OSError('Incomplete dataset')
+	return interest_dirs
 
 
 def _se_metadata(in_dir, name):
-	"""Create metada.csv file for speech enhancement task."""
-	subdir = ('noisy', 'clean')
+	name = join(in_dir, name)
+	dirs = _train_first(_find_interest_dirs(in_dir, "se"))
+	info = list()
 
-	def _rm_hidden(files):
-		return [file for file in files if not file.startswith(".")]
+	def _get_txt_path(wav_file, is_train=True):
+		if is_train:
+			return join(in_dir, 'trainset_28spk_txt', file.replace('wav', 'txt'))
+		else:
+			return join(in_dir, 'testset_txt', file.replace('wav', 'txt'))
 
-	def _point_txt(wav_path):
-		return wav_path.replace('wav', 'txt')
+	def _get_clean(noisy_path):
+		return noisy_path.replace('noisy', 'clean')
 
-	with open(join(in_dir, name), 'w', encoding='utf-8') as f:
-		for spk in SPKS:
-			if  spk not in src_spks:
-				stage = 'train' if spk in target_speakers else 'test'
-				spk_src_path = join(
-					in_dir, stage, subdir[0], spk, 'wav')
-				spk_src_files = _rm_hidden(os.listdir(spk_src_path))
-				spk_id = str(SPKS.index(spk))
-				for src in spk_src_files:
-					src_path = join(spk_src_path, src)
-					target_path = src_path.replace(subdir[0], subdir[1])
-					txt_path = _point_txt(src_path)
-					txt = open(txt_path, 'r', encoding='utf-8')
-					text = txt.read()[:-1]
-					f.write(src_path + '|' + target_path + '|' + 
-						text + '|' + spk_id + '\n')
+	for d in dirs:
+		dir_path = join(in_dir, d)
+		files = _rm_hidden(os.listdir(dir_path))
+		for file in files:
+			speaker = file.split("_")[0]
+			if speaker not in SRC_SPKS and speaker in SPKS:
+				speaker_id = str(SPKS.index(speaker))
+				is_train = speaker in TARGET_SPKS
+				txt_path = _get_txt_path(file, is_train)
+
+				with open(txt_path, 'r', encoding='utf-8') as f:
+					text = f.read()[:-1]
+				src_path = join(in_dir, d, file)
+				target_path = _get_clean(src_path)
+
+				info.append((src_path, target_path, text, speaker_id))
+
+	with open(name, 'w', encoding='utf-8') as f:
+		for l in info:
+			f.write(l[0] + '|' + l[1] + '|' + l[2] + '|' + l[3] + '\n' )
 
 
 def _vc_metadata(in_dir, name):
-	"""Create metadata.csv file for Voice Conversion task."""
+	name = join(in_dir, name)
+	dirs = _train_first(_find_interest_dirs(in_dir, "vc"))
+	info = list()
 
-	def _rm_hidden(files):
-		return [file for file in files if not file.startswith(".")]
-
-	def _point_wav(txt_path):
-		return txt_path.replace('txt', 'wav')
+	def _collect_target(path):
+		all_files = _rm_hidden(os.listdir(path))
+		target_utts = dict()
+		for file in all_files:
+			speaker = file.split("_")[0]
+			if speaker in TARGET_SPKS:
+				if speaker not in target_utts:
+					target_utts[speaker] = list()
+					target_utts[speaker].append(file)
+				else:
+					target_utts[speaker].append(file)
+		return target_utts
 
 	def _rm_spaces(string):
 		return string.replace(' ','').replace('\n','')
@@ -93,33 +114,39 @@ def _vc_metadata(in_dir, name):
 		string = [s for s in string if s not in punctuation]
 		return ''.join(string).lower()
 
-	speakers = src_spks + target_speakers + test_spks
-	refs = list()
-	for spk in speakers:
-		phase = 'train' if spk in src_spks else 'test'
-		if spk in src_spks or spk in test_spks:
-			spk_path = join(in_dir, phase, 'clean', spk, 'txt')
-			paths = _rm_hidden(os.listdir(spk_path))
-			for file in paths:
-				ref_path = join(spk_path, file)
-				with open(ref_path, 'r', encoding='utf-8') as f:
-					ref = _rm_punctuation(f.read())
-					for tgt in target_speakers:
-						spk_id = SPKS.index(tgt)
-						tgt_path = join(in_dir, 'train', 'clean', tgt, 'txt')
-						tgt_files = _rm_hidden(os.listdir(tgt_path))
-						for file_tgt in tgt_files:
-							cand_path = join(tgt_path, file_tgt)
-							with open(cand_path, 'r', encoding='utf-8') as f2:
-								txt = f2.read()[:-1]
-								cand = _rm_punctuation(txt)
-								if ref == cand:
-									refs.append((_point_wav(ref_path), 
-										_point_wav(cand_path), txt, str(spk_id)))
+	def _read_file(path):
+		with open(path, 'r', encoding='utf-8') as f:
+			text = f.read()[:-1]
+			txt = _rm_punctuation(text)
+		return text, txt
 
-	with open(join(in_dir, name), 'w', encoding='utf-8') as f:
-		for r in refs:
-			f.write(r[0] + '|' + r[1] + '|' + r[2] + '|' + r[3] + '\n')
+	def _get_audio(text_path, stage):
+		s = 'clean_' + stage
+		path = text_path.replace(stage, s)
+		path = path.replace('txt', 'wav')
+		return path
+
+	target_utts = _collect_target(join(in_dir, dirs[0]))
+
+	for d in dirs:
+		dir_path = join(in_dir, d)
+		files = _rm_hidden(os.listdir(dir_path))
+		for file in files:
+			speaker = file.split("_")[0]
+			if speaker in SRC_SPKS or speaker in TEST_SPKS:
+				text, ref = _read_file(join(dir_path, file))
+				for spk in target_utts:
+					speaker_id = str(SPKS.index(spk))
+					for utt in target_utts[spk]:
+						_, cand = _read_file(join(in_dir, dirs[0], utt))
+						if ref == cand:
+							src_path = _get_audio(join(in_dir, d, file), d)
+							target_path = _get_audio(join(in_dir, dirs[0], utt), d)
+							info.append((src_path, target_path, text, speaker_id))
+
+	with open(name, 'w', encoding='utf-8') as f:
+		for l in info:
+			f.write(l[0] + '|' + l[1] + '|' + l[2] + '|' + l[3] + '\n' )
 
 
 def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
@@ -128,10 +155,11 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	index = 1
 
 	metafile = 'metadata_' + hparams.modal + '.csv'
-	# if hparams.modal == "se":
-	# 	_se_metadata(in_dir, metafile)
-	# elif hparams.modal == "vc":
-	# 	_vc_metadata(in_dir, metafile)
+	print('Preparing metadata file %s' % metafile)
+	if hparams.modal == "se":
+		_se_metadata(in_dir, metafile)
+	elif hparams.modal == "vc":
+		_vc_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
 		for line in f:
@@ -145,9 +173,9 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 					index, path_src, path_target, text, spk)))
 			index += 1
 	return [future.result() for future in tqdm(futures)]
+	
 
-
-def _extract_melSpec(wav_path):
+def _extract_mel(wav_path):
 	# Load the audio to a numpy array. Resampled if needed.
 	wav = audio.load_wav(wav_path)
 
@@ -200,32 +228,31 @@ def _extract_melSpec(wav_path):
 	return out, mel_spectrogram, timesteps, out_dtype
 
 
-def _process_utterance(out_dir, index, path_src, 
+def _process_utterance(out_dir, index, path_src,
 	path_target, text, speaker):
 	sr = hparams.sample_rate
 	# print(path_src, path_target)
-	_, mel_src, timesteps_src, dtype_src = _extract_melSpec(
-		path_src)
-	audio_target, mel_target, timesteps_target, dtype_target = _extract_melSpec(
+	_, mel_src, timesteps_src, dtype_src = _extract_mel(path_src)
+	audio_target, mel_target, timesteps_target, dtype_target = _extract_mel(
 		path_target)
 
-	if hparams.modal == "vc":
-		mel_src = _dtw(mel_src, mel_target)
+	# if hparams.modal == "vc":
+		# mel_src = _dtw(mel_src, mel_target)
 
 	# Write files to disk
 	if hparams.modal == "se":
-		if int(speaker) in test_id:
-			melSpec_filename = "source-melSpec-test-%05d.npy" % index
+		if int(speaker) in TEST_ID:
+			melSpec_filename = "source-mel-test-%05d.npy" % index
 			audio_filename = "target-audio-test-%05d.npy" % index
 		else:
-			melSpec_filename = "source-melSpec-%05d.npy" % index
+			melSpec_filename = "source-mel-%05d.npy" % index
 			audio_filename = "target-audio-%05d.npy" % index
 	if hparams.modal == "vc":
-		if test_spks[0] in path_src or test_spks[1] in path_src:
-			melSpec_filename = "source-melSpec-test-%05d.npy" % index
+		if TEST_SPKS[0] in path_src or TEST_SPKS[1] in path_src:
+			melSpec_filename = "source-mel-test-%05d.npy" % index
 			audio_filename = "target-audio-test-%05d.npy" % index
 		else:
-			melSpec_filename = "source-melSpec-%05d.npy" % index
+			melSpec_filename = "source-mel-%05d.npy" % index
 			audio_filename = "target-audio-%05d.npy" % index
 
 
@@ -237,3 +264,4 @@ def _process_utterance(out_dir, index, path_src,
 
 	return (audio_filename, melSpec_filename, 
 		timesteps_target, text, speaker)
+

@@ -14,7 +14,7 @@ The installation process, as well as the general working scheme follows that of 
 
 ## Requirements
 
-This packages and/or frameworks must be installed by the user before proceeding further.
+These packages and/or frameworks must be installed by the user before proceeding further.
 
 - Python 3
 - CUDA >= 8.0
@@ -48,7 +48,7 @@ Usage:
 python download.py ${dataset_path}
 ```
 
-Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}`. Also the additional files `se_metadata.csv` and `vc_metadata.csv` should be at the root of `${dataset_path}`.
+Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}`. 
 
 e.g.,
 
@@ -58,7 +58,7 @@ python download.py ./data
 
 ### 1. Preprocessing
 
-In this step, time-aligned audio and mel-spectrogram features will be extracted.
+In this step, time-aligned audio and mel-spectrogram features will be extracted. As a previous step, the additional files `se_metadata.csv` and `vc_metadata.csv` should be at the root of `${dataset_path}`. These files tell the preprocessing pipeline where to find the files of interest. They are generated automatically from the files in the directory `${dataset_path}`.
 
 Usage:
 
