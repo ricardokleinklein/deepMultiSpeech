@@ -8,6 +8,12 @@ See https://github.com/ricardokleinklein/deepMultiSpeech/issues/1 for planned TO
 
 The installation process, as well as the general working scheme follows that of the Wavenet implementation.
 
+## Acknowledgements
+
+The code presented here has been developed during author's research internship at National Institute of Informatics in Tokyo, which took place between October 2017 and March 2018.
+
+This work has been developed by the author (Ricardo Kleinlein) under the supervision of Junichi Yamagishi and Jaime Lorenzo-Trueba.
+
 ## General scheme
 
 ![general diagram](images/diagram.png)
