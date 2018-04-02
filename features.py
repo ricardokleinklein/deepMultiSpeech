@@ -52,6 +52,10 @@ def _find_interest_dirs(path, task):
 	return interest_dirs
 
 
+def _dtw(mel_src, mel_target):
+	return mel_src
+
+
 def _se_metadata(in_dir, name):
 	name = join(in_dir, name)
 	dirs = _train_first(_find_interest_dirs(in_dir, "se"))
@@ -141,7 +145,7 @@ def _vc_metadata(in_dir, name):
 						_, cand = _read_file(join(in_dir, dirs[0], utt))
 						if ref == cand:
 							src_path = _get_audio(join(in_dir, d, file), d)
-							target_path = _get_audio(join(in_dir, dirs[0], utt), d)
+							target_path = _get_audio(join(in_dir, dirs[0], utt), dirs[0])
 							info.append((src_path, target_path, text, speaker_id))
 
 	with open(name, 'w', encoding='utf-8') as f:
@@ -236,8 +240,8 @@ def _process_utterance(out_dir, index, path_src,
 	audio_target, mel_target, timesteps_target, dtype_target = _extract_mel(
 		path_target)
 
-	# if hparams.modal == "vc":
-		# mel_src = _dtw(mel_src, mel_target)
+	if hparams.modal == "vc":
+		mel_src = _dtw(mel_src, mel_target)
 
 	# Write files to disk
 	if hparams.modal == "se":
