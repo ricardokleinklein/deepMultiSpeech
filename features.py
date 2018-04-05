@@ -53,7 +53,24 @@ def _find_interest_dirs(path, task):
 
 
 def _dtw(mel_src, mel_target):
-	return mel_src
+	mel_src = np.swapaxes(mel_src, 0, 1)
+	mel_target = np.swapaxes(mel_target, 0, 1)
+	_, wp = librosa.core.dtw(mel_src, mel_target)
+	# Fill a new spectrogram with the size of mel_target
+	# but with the frames from mel_src
+	# Cases:
+	#		1. Frame from target is not in wp
+	#		2. Frame from target has 1 correspondence
+	#		3. Frame from target has +1 correspondence
+	new_src = np.zeros(mel_target.shape)
+	n_frames = mel_target.shape[1]
+	for i in range(n_frames):
+		if i in wp[:,1]:
+			idx_wp, = np.where(wp[:,1] == i)
+			avg_frame = np.mean(mel_src[:,wp[idx_wp,0]], axis=1)
+			new_src[:,i] = avg_frame
+	print(new_src[:,0])
+	return new_src
 
 
 def _se_metadata(in_dir, name):
@@ -159,11 +176,11 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	index = 1
 
 	metafile = 'metadata_' + hparams.modal + '.csv'
-	print('Preparing metadata file %s' % metafile)
-	if hparams.modal == "se":
-		_se_metadata(in_dir, metafile)
-	elif hparams.modal == "vc":
-		_vc_metadata(in_dir, metafile)
+	# print('Preparing metadata file %s' % metafile)
+	# if hparams.modal == "se":
+	# 	_se_metadata(in_dir, metafile)
+	# elif hparams.modal == "vc":
+	# 	_vc_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
 		for line in f:
