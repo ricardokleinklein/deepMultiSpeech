@@ -28,12 +28,13 @@ SPKS = SRC_SPKS + TARGET_SPKS + TEST_SPKS
 TARGET_ID = [SPKS.index(spk) for spk in TARGET_SPKS]
 TEST_ID = [SPKS.index(spk) for spk in TEST_SPKS]
 
+
 def _rm_hidden(files):
 		return [file for file in files if not file.startswith(".")]
 
 
 def _train_first(dirs):
-		"""Just for convenience, but absolutely unnecessary."""
+		# Just for convenience, but absolutely unnecessary.
 		return (dirs[1], dirs[0]) if 'train' in dirs[1] else dirs
 
 
@@ -56,20 +57,21 @@ def _dtw(mel_src, mel_target):
 	mel_src = np.swapaxes(mel_src, 0, 1)
 	mel_target = np.swapaxes(mel_target, 0, 1)
 	_, wp = librosa.core.dtw(mel_src, mel_target)
-	# Fill a new spectrogram with the size of mel_target
-	# but with the frames from mel_src
-	# Cases:
-	#		1. Frame from target is not in wp
-	#		2. Frame from target has 1 correspondence
-	#		3. Frame from target has +1 correspondence
 	new_src = np.zeros(mel_target.shape)
 	n_frames = mel_target.shape[1]
+	last_frame = 0
 	for i in range(n_frames):
 		if i in wp[:,1]:
 			idx_wp, = np.where(wp[:,1] == i)
 			avg_frame = np.mean(mel_src[:,wp[idx_wp,0]], axis=1)
 			new_src[:,i] = avg_frame
-	print(new_src[:,0])
+			last_frame = wp[max(idx_wp), 0]
+		else:
+			if i == 0:
+				new_src[:,0] = mel_src[:,0]
+			else:
+				new_src[:,i] = mel_src[:,last_frame]
+	new_src = np.swapaxes(new_src, 0, 1)
 	return new_src
 
 
@@ -275,8 +277,6 @@ def _process_utterance(out_dir, index, path_src,
 		else:
 			melSpec_filename = "source-mel-%05d.npy" % index
 			audio_filename = "target-audio-%05d.npy" % index
-
-
 
 	np.save(join(out_dir, melSpec_filename),
 		mel_src.astype(np.float32), allow_pickle=False)
