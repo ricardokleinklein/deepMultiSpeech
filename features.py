@@ -178,11 +178,11 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	index = 1
 
 	metafile = 'metadata_' + hparams.modal + '.csv'
-	# print('Preparing metadata file %s' % metafile)
-	# if hparams.modal == "se":
-	# 	_se_metadata(in_dir, metafile)
-	# elif hparams.modal == "vc":
-	# 	_vc_metadata(in_dir, metafile)
+	print('Preparing metadata file %s' % metafile)
+	if hparams.modal == "se":
+		_se_metadata(in_dir, metafile)
+	elif hparams.modal == "vc":
+		_vc_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
 		for line in f:
@@ -254,7 +254,6 @@ def _extract_mel(wav_path):
 def _process_utterance(out_dir, index, path_src,
 	path_target, text, speaker):
 	sr = hparams.sample_rate
-	# print(path_src, path_target)
 	_, mel_src, timesteps_src, dtype_src = _extract_mel(path_src)
 	audio_target, mel_target, timesteps_target, dtype_target = _extract_mel(
 		path_target)
