@@ -475,6 +475,7 @@ def collate_fn(batch):
 def time_string():
     return datetime.now().strftime('%Y-%m-%d %H:%M')
 
+
 def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema=None):
     if ema is not None:
         print("Using averaged model for evaluation")
@@ -786,10 +787,10 @@ def build_model():
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
         scalar_input=is_scalar_input(hparams.input_type),
         modal=hparams.modal,
-        modal_N=8,
-        modal_stride=0,
-        body_hidden_size=64,
-        body_out_channels=32,
+        modal_N=hparams.modal_N,
+        modal_stride=hparams.modal_stride,
+        body_hidden_size=hparams.body_hidden_size,
+        body_out_channels=hparams.body_out_channels,
     )
     return model
 
