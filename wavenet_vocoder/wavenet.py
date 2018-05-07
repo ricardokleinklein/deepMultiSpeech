@@ -316,6 +316,8 @@ class WaveNet(nn.Module):
             elif self.modal == "vc":
                 c = self.vc_modal(c)
 
+            c_output = c
+
             c = self.body(c)
 
             # B x 1 x C x T
@@ -386,7 +388,7 @@ class WaveNet(nn.Module):
         outputs = outputs.transpose(0, 1).transpose(1, 2).contiguous()
 
         self.clear_buffer()
-        return outputs
+        return outputs, c_output
 
     def clear_buffer(self):
         self.first_conv.clear_buffer()

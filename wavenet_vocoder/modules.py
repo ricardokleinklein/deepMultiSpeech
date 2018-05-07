@@ -273,6 +273,9 @@ class SpectrogramModality(nn.Module):
     Args:
         N: Number of layers in the modality.
         is_stride: Whether or not there is stride along freq axis.
+
+    (TODO): Change dimensionality. Prospective mel-spectogram like
+    https://research.googleblog.com/2017/12/tacotron-2-generating-human-like-speech.html
     """
     def __init__(self, N, is_stride=False):
         super(SpectrogramModality, self).__init__()
