@@ -515,7 +515,7 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
     else:
         initial_input = Variable(torch.zeros(1, 1, 1).fill_(initial_value))
     initial_input = initial_input.cuda() if use_cuda else initial_input
-    y_hat = model.incremental_forward(
+    y_hat, c_hat = model.incremental_forward(
         initial_input, c=c, g=g, T=length, tqdm=tqdm, softmax=True, quantize=True,
         log_scale_min=hparams.log_scale_min)
 
@@ -529,12 +529,14 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
     else:
         y_hat = y_hat.view(-1).cpu().data.numpy()
 
-    # Save audio
+    # Save audio and partial spectrogram
     os.makedirs(eval_dir, exist_ok=True)
     path = join(eval_dir, "step{:09d}_predicted.wav".format(global_step))
     librosa.output.write_wav(path, y_hat, sr=hparams.sample_rate)
     path = join(eval_dir, "step{:09d}_target.wav".format(global_step))
     librosa.output.write_wav(path, y_target, sr=hparams.sample_rate)
+    # path = join(eval_dir, "step{:09d}_modal_output.csv".format(global_step))
+    # np.savetxt(path, c_hat)
 
 
 def save_states(global_step, writer, y_hat, y, input_lengths, checkpoint_dir=None):
@@ -694,12 +696,14 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
             test_evaluated = False
             for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
                 # Whether to save eval (i.e., online decoding) result
-                do_eval = False
+                # do_eval = False
+                # eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
+                # # Do eval per eval_interval for train
+                # if train and global_step > 0 \
+                #         and global_step % hparams.train_eval_interval == 0:
+                #     do_eval = True
+                do_eval = True
                 eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
-                # Do eval per eval_interval for train
-                if train and global_step > 0 \
-                        and global_step % hparams.train_eval_interval == 0:
-                    do_eval = True
                 # Do eval for test
                 # NOTE: Decoding WaveNet is quite time consuming, so
                 # do only once in a single epoch for testset
