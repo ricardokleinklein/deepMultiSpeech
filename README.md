@@ -1,5 +1,8 @@
 # Deep Multi-Speech model
 
+**NOTE: This repository may not work as it is now. It'll undergo major changes in the next days, and I'll update it again once I'm satisfied with the result.** I am sorry if this is causing any inconvenience to you.
+
+
 The aim of this repository is to provide an implementation of what we've called Deep MultiSpeech, a Deep Learning architecture
 which generates audio samples for several different tasks such as Speech Enhancement and Voice Conversion, using as a 
 vocoder an implementation of Wavenet (https://github.com/r9y9/wavenet_vocoder/).
