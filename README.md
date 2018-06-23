@@ -57,7 +57,7 @@ Usage:
 python download.py ${dataset_path}
 ```
 
-Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}`. 
+Keep in mind that the 28 speakers-dataset is going to be downloaded, so it will take long to download all of them. Once finished, data can be found in `${dataset_path}/unzip`. 
 
 e.g.,
 
@@ -72,7 +72,7 @@ In this step, time-aligned audio and mel-spectrogram features will be extracted.
 Usage:
 
 ```
-python preprocess.py ${dataset_path} ${out_dir}
+python preprocess.py ${dataset_path/unzip} ${out_dir}
 ```
 
 The specific task the model is trained on is set by `hparams.modal`.
@@ -80,11 +80,11 @@ The specific task the model is trained on is set by `hparams.modal`.
 e.g.,
 
 ```
-python preprocess.py ./data ./features/se/ --hparams="modal="se""
+python preprocess.py ./data/unzip ./features/se/ --hparams="modal="se""
 ```
 or
 ```
-python preprocess.py ./data ./features/vc/ --hparams="modal="vc""
+python preprocess.py ./data/unzip ./features/vc/ --hparams="modal="vc""
 ```
 
 So far the supported tasks are `se` (Speech Enhancement) and `vc` (Voice Conversion). Once finished, the time-aligned pairs of audios and conditioning mel-spectrogram can be found in `${out_dir}`.

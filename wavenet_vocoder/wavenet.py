@@ -14,9 +14,7 @@ from deepvoice3_pytorch.modules import Embedding
 from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
 
-from .modules import SepConv, ConvStep, ConvRes, SpectrogramModality
-from .modules import TextModality
-from .modules import BodyNet
+from .modules import *
 
 
 def _expand_global_features(B, T, g, bct=True):
@@ -109,25 +107,17 @@ class WaveNet(nn.Module):
                  upsample_scales=None,
                  freq_axis_kernel_size=3,
                  scalar_input=False,
-                 modal="se",
-                 modal_N=8,
-                 modal_stride=0,
-                 body_hidden_size=64,
-                 body_out_channels=32,
+                 modality='se',
+                 modality_layers=8,
                  ):
         super(WaveNet, self).__init__()
         self.scalar_input = scalar_input
         self.out_channels = out_channels
         self.cin_channels = cin_channels
 
-        self.modal = modal
-        self.se_modal = SpectrogramModality(modal_N, modal_stride)
-        self.vc_modal = SpectrogramModality(modal_N, modal_stride)
-
-        num_filters = 2 ** modal_N
-        self.body = BodyNet(num_filters, body_hidden_size,
-            body_out_channels, cin_channels)
-
+        # self.modality = modality
+        # self.se_modal = SpectrogramModality(modality_layers, kernel_size)
+        # self.vc_modal = SpectrogramModality(modality_layers, kernel_size)
 
         assert layers % stacks == 0
         layers_per_stack = layers // stacks
@@ -212,16 +202,6 @@ class WaveNet(nn.Module):
         g_bct = _expand_global_features(B, T, g, bct=True)
 
         if c is not None and self.upsample_conv is not None:
-            _, _, t = c.size()
-            # B x 1 x C x T
-            c = c.unsqueeze(dim=1)
-            if self.modal == "se":
-                c = self.se_modal(c)
-            elif self.modal == "vc":
-                c = self.vc_modal(c)
-
-            c = self.body(c)
-
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
@@ -308,18 +288,6 @@ class WaveNet(nn.Module):
         # Local conditioning
         if c is not None and self.upsample_conv is not None:
             assert c is not None
-            _, _, t = c.size()
-            # B x 1 x C x T
-            c = c.unsqueeze(dim=1)
-            if self.modal == "se":
-                c = self.se_modal(c)
-            elif self.modal == "vc":
-                c = self.vc_modal(c)
-
-            c_output = c
-
-            c = self.body(c)
-
             # B x 1 x C x T
             c = c.unsqueeze(1)
             for f in self.upsample_conv:
@@ -388,7 +356,7 @@ class WaveNet(nn.Module):
         outputs = outputs.transpose(0, 1).transpose(1, 2).contiguous()
 
         self.clear_buffer()
-        return outputs, c_output
+        return outputs
 
     def clear_buffer(self):
         self.first_conv.clear_buffer()

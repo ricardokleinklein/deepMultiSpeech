@@ -49,6 +49,7 @@ from tensorboardX import SummaryWriter
 from warnings import warn
 
 from wavenet_vocoder.util import is_mulaw_quantize, is_mulaw, is_raw, is_scalar_input
+from wavenet_vocoder.util import number_params
 from wavenet_vocoder.mixture import discretized_mix_logistic_loss
 from wavenet_vocoder.mixture import sample_from_discretized_mix_logistic
 
@@ -483,6 +484,8 @@ def eval_model(global_step, writer, model, y, c, g, input_lengths, eval_dir, ema
 
     model.eval()
     idx = np.random.randint(0, len(y))
+    print(input_lengths[idx].cpu().numpy())
+    exit()
     length = input_lengths[idx].data.cpu().numpy()[0]
 
     # (T,)
@@ -696,14 +699,12 @@ def train_loop(model, data_loaders, optimizer, writer, checkpoint_dir=None):
             test_evaluated = False
             for step, (x, y, c, g, input_lengths) in tqdm(enumerate(data_loader)):
                 # Whether to save eval (i.e., online decoding) result
-                # do_eval = False
-                # eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
-                # # Do eval per eval_interval for train
-                # if train and global_step > 0 \
-                #         and global_step % hparams.train_eval_interval == 0:
-                #     do_eval = True
-                do_eval = True
+                do_eval = False
                 eval_dir = join(checkpoint_dir, "{}_eval".format(phase))
+                # Do eval per eval_interval for train
+                if train and global_step > 0 \
+                        and global_step % hparams.train_eval_interval == 0:
+                    do_eval = True
                 # Do eval for test
                 # NOTE: Decoding WaveNet is quite time consuming, so
                 # do only once in a single epoch for testset
@@ -790,11 +791,8 @@ def build_model():
         upsample_scales=hparams.upsample_scales,
         freq_axis_kernel_size=hparams.freq_axis_kernel_size,
         scalar_input=is_scalar_input(hparams.input_type),
-        modal=hparams.modal,
-        modal_N=hparams.modal_N,
-        modal_stride=hparams.modal_stride,
-        body_hidden_size=hparams.body_hidden_size,
-        body_out_channels=hparams.body_out_channels,
+        modality='se',
+        modality_layers=8,
     )
     return model
 
@@ -935,6 +933,7 @@ if __name__ == "__main__":
     # Model
     model = build_model()
     print(model)
+    print("Number of parameters: {}".format(number_params(model)))
     if use_cuda:
         model = model.cuda()
 

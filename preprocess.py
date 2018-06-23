@@ -64,6 +64,6 @@ if __name__ == "__main__":
 
     print("Sampling frequency: {}".format(hparams.sample_rate))
 
-    assert hparams.modal in ["se", "vc"]
+    assert hparams.modality in ["se", "vc"]
     mod = importlib.import_module("features")
     preprocess(mod, in_dir, out_dir, num_workers)

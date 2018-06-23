@@ -177,11 +177,11 @@ def build_from_path(in_dir, out_dir, num_workers=1, tqdm=lambda x: x):
 	futures = []
 	index = 1
 
-	metafile = 'metadata_' + hparams.modal + '.csv'
+	metafile = 'metadata_' + hparams.modality + '.csv'
 	print('Preparing metadata file %s' % metafile)
-	if hparams.modal == "se":
+	if hparams.modality == "se":
 		_se_metadata(in_dir, metafile)
-	elif hparams.modal == "vc":
+	elif hparams.modality == "vc":
 		_vc_metadata(in_dir, metafile)
 
 	with open(join(in_dir, metafile), 'r', encoding='utf-8') as f:
@@ -258,18 +258,18 @@ def _process_utterance(out_dir, index, path_src,
 	audio_target, mel_target, timesteps_target, dtype_target = _extract_mel(
 		path_target)
 
-	if hparams.modal == "vc":
+	if hparams.modality == "vc":
 		mel_src = _dtw(mel_src, mel_target)
 
 	# Write files to disk
-	if hparams.modal == "se":
+	if hparams.modality == "se":
 		if int(speaker) in TEST_ID:
 			melSpec_filename = "source-mel-test-%05d.npy" % index
 			audio_filename = "target-audio-test-%05d.npy" % index
 		else:
 			melSpec_filename = "source-mel-%05d.npy" % index
 			audio_filename = "target-audio-%05d.npy" % index
-	if hparams.modal == "vc":
+	if hparams.modality == "vc":
 		if TEST_SPKS[0] in path_src or TEST_SPKS[1] in path_src:
 			melSpec_filename = "source-mel-test-%05d.npy" % index
 			audio_filename = "target-audio-test-%05d.npy" % index

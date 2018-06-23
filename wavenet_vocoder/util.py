@@ -23,3 +23,8 @@ def is_raw(s):
 
 def is_scalar_input(s):
     return is_raw(s) or is_mulaw(s)
+
+
+def number_params(model):
+	"""Return the number of trainable parameters in the model."""
+	return sum(p.numel() for p in model.parameters() if p.requires_grad)

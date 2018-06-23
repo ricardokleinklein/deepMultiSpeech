@@ -181,191 +181,78 @@ class ResidualConv1dGLU(nn.Module):
                 self.conv.clear_buffer()
 
 
-def pad2d(inputs, kernel_size, stride, padding):
-    """Return the required padding in both C and T dimensions."""
-    # In PyTorch pad is (pad_left, pad_right, pad_up, pad_bottom).
-    # Impose that temporal length is kept.
-    B, _, C, T = inputs.size()
-    pad_T = int(0.5 * (kernel_size - 1))
-    if padding is "SAME":
-        pad_C = int(0.5 * (stride*C - 1 + kernel_size - C))
-        return (pad_T, pad_T, pad_C, pad_C)
-    else:
-        return (pad_T, pad_T, 0, 0)
-
-
-class SepConv(nn.Module):
-    """Depthwise Separable Conv layer.
+class DepthwiseSeparableConv(nn.Module):
+    """Depthwise Separable Convolutional layer.
 
     Args:
-        in_channels: number of input channels.
-        out_channels: number of output channels.
-        kernel_size: kernel size of the conv.
-        stride: stride over the freq axis.
+        in_channels:
+        out_channels:
+        kernel:
+        stride:
+        dilation:
     """
-    def __init__(self, in_channels, out_channels, kernel_size, stride):
-        super(SepConv, self).__init__()
-        self.kernel_size = kernel_size
-        self.stride = stride
+    def __init__(self, in_channels, out_channels, kernel, 
+        stride, padding, dilation=1):
+        super(DepthwiseSeparableConv, self).__init__()
 
-        self.depthwise_conv = nn.Conv2d(in_channels, in_channels,
-            kernel_size, stride=(stride, 1), groups=in_channels)
-        self.pointwise_conv = nn.Conv2d(in_channels, out_channels, 1)
+        self.depthwise = nn.Conv2d(in_channels, in_channels, kernel,
+            stride=stride, padding=padding, dilation=dilation, groups=in_channels)
+        self.pointwise = nn.Conv2d(in_channels, out_channels, 1)
 
-    def forward(self, inputs, padding):
-        pad = pad2d(inputs, self.kernel_size, self.stride, padding=padding)
-        inputs = F.pad(inputs, pad)
-        h = self.depthwise_conv(inputs)
-        h = self.pointwise_conv(h)
+    def forward(self, x):
+        h = self.depthwise(x)
+        h = self.pointwise(h)
         return h
 
 
 class ConvStep(nn.Module):
-    """ReLU + 2 x SepConv + BatchNorm.
-
-    Args:
-        in_channels: number of input channels.
-        out_channels: number of output channels.
-        kernel_size: kernel size of the second conv
-        stride: stride along the freq dimension.
-    """
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1):
+    """Convolutional layer with non-linearity and batch normalization."""
+    def __init__(self, in_channels, out_channels, kernel, 
+        stride=1, padding=1):
         super(ConvStep, self).__init__()
-        self.conv = SepConv(in_channels, out_channels, kernel_size, stride=stride)
-        self.batch_norm = nn.BatchNorm2d(out_channels)
 
-    def forward(self, inputs, padding):
-        h = F.relu(inputs)
-        h = self.conv(h, padding=padding)
-        h = self.batch_norm(h)
+        self.conv = DepthwiseSeparableConv(in_channels, out_channels, kernel,
+            stride=stride, padding=padding)
+
+    def forward(self, x):
+        h = self.conv(F.relu(x))
+        h = F.layer_norm(h, h.shape)
         return h
 
 
 class ConvRes(nn.Module):
-    """ConvStep + (2xConvStep + MaxPool).
-
-    Args:
-        in_channels: number of input channels.
-        out_channels: number of output channels.
-        is_stride: Whether there is stride=2 in the freq axis.
-    """
-    def __init__(self, in_channels, out_channels, is_stride=False):
+    """Residual Convolutional layer with ConvRes submodules."""
+    def __init__(self, in_channels, out_channels, kernel):
         super(ConvRes, self).__init__()
-        stride = 1 if is_stride is False else 2 
-        self.stride = stride
+        self.kernel = kernel
 
-        self.left_conv_step = ConvStep(in_channels, out_channels, 1, stride=stride)
-        self.right_conv_1 = ConvStep(in_channels, out_channels, 3)
-        self.right_conv_2 = ConvStep(out_channels, out_channels, 3)
+        self.c1 = ConvStep(in_channels, out_channels, kernel)
+        self.c2 = ConvStep(out_channels, out_channels, kernel)
+        self.residual = ConvStep(in_channels, out_channels, 1, 
+            stride=(2,1), padding=0)
 
-    def forward(self, inputs):
-        h_left = self.left_conv_step(inputs, padding=None)
-        h_right = self.right_conv_1(inputs, padding="SAME")
-        h_right = self.right_conv_2(h_right, padding="SAME")
-        h_right = F.max_pool2d(h_right, 3, stride=(self.stride,1), padding=1)
-        h = h_left + h_right
+    def forward(self, x):
+        h = self.c1(x)
+        h = self.c2(h)
+        p1 = F.max_pool2d(h, self.kernel, stride=(2,1), padding=1)
+        h = p1 + self.residual(x)
         return h
 
 
 class SpectrogramModality(nn.Module):
-    """ N x ConvRes.
-
-    Args:
-        N: Number of layers in the modality.
-        is_stride: Whether or not there is stride along freq axis.
-
-    (TODO): Change dimensionality. Prospective mel-spectogram like
-    https://research.googleblog.com/2017/12/tacotron-2-generating-human-like-speech.html
-    """
-    def __init__(self, N, is_stride=False):
+    """Modality for spectrogram-like input."""
+    def __init__(self, N, kernel):
         super(SpectrogramModality, self).__init__()
-        self.N = N + 1
-        self.convs = nn.ModuleList([])
-        for n in range(1, N + 1):
-            self.convs.append(ConvRes(2**(n-1), 2**n, is_stride=is_stride))
+        self.layers = nn.ModuleList(
+            [ConvRes(2**l, 2**(l+1), kernel) for l in range(N)])
 
-    def forward(self, inputs):
-        h = inputs
-        for layer in self.convs:
-            h = layer(h)
-        return h
+    def forward(self, x):
+        for l in self.layers:
+            x = l(x)
+        x = torch.squeeze(x, 2)
+        return x
 
 
-class TextModality(nn.Module):
-    """ N x (ReLU + bi-LSTM + ReLU + Conv2d).
 
-    Args:
-        N: Number of layers in the modality net.
-    """
-    def __init__(self, N):
-        super(TextModality, self).__init__()
-
-    def forward(self, inputs):
-        raise NotImplementedError
-
-
-class BodyNet(nn.Module):
-    """ Bi-LSTM + ConvRes + Linear.
-
-    Args:
-        input_size (int): number of input features per sample, 
-            in_channels times vector length.
-        hidden_size (int): state and cell vector length.
-        out_channels (int): number of output channels in the inner
-            convolution.
-        features_size (int): number of features in the conditioning.
-            In our case, typicalle 80 melspecs.
-    """
-    def __init__(self, input_size, hidden_size, 
-        out_channels, cin_channels):
-        super(BodyNet, self).__init__()
-
-        self.cin_channels = cin_channels
-
-        self.biLSTM = nn.LSTM(input_size, hidden_size,
-            batch_first=True, bidirectional=True)
-        self.CNN = ConvRes(1, out_channels)
-        self.lineal1 = nn.Linear(2 * hidden_size * out_channels,
-         9 * cin_channels)
-        self.lineal2 = nn.Linear(9 * cin_channels, 3 * cin_channels)
-        self.lineal3 = nn.Linear(3 * cin_channels, cin_channels)
-
-    def forward(self, inputs):
-        assert len(inputs.size()) == 3 or len(inputs.size()) == 4
-        if len(inputs.size()) == 3:
-            inputs = inputs. unsqueeze(dim=1)
-        # B x F x C' x T 
-        B, _, C_p, T = inputs.size()
-        inner1 = Variable(torch.rand(B, 9 * self.cin_channels, T))
-        inner2 = Variable(torch.rand(B, 3 * self.cin_channels, T))
-        inner3 = Variable(torch.rand(B, self.cin_channels, T))
-
-        # B x C'' x T
-        h = inputs.view(B, -1, T)
-        h = F.relu(h)
-        # B x T x C''
-        h = h.permute(0,2,1)
-        self.biLSTM.flatten_parameters()
-        h, _ = self.biLSTM(h)
-        # B x 1 x T x 2H
-        h = h.permute(0,2,1).unsqueeze(1)
-        h = F.relu(h)
-        h = self.CNN(h)
-        # B x C''' x T
-        h = h.view(B, -1, T)
-        # B x C x T
-        for i in range(B):
-            for j in range(T):
-                inner1[i,:,j] = self.lineal1(h[i,:,j])
-        h = F.relu(inner1)
-        for i in range(B):
-            for j in range(T):
-                inner2[i,:,j] = self.lineal2(h[i,:,j])
-        h = F.relu(inner2)
-        for i in range(B):
-            for j in range(T):
-                inner3[i,:,j] = self.lineal3(h[i,:,j])
-        h = F.relu(inner3)
-        return h
 
 

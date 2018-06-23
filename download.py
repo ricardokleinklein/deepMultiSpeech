@@ -39,7 +39,7 @@ import os
 import importlib
 import urllib
 import shutil
-import wget
+import urllib
 import zipfile
 
 from os.path import join, exists
@@ -71,10 +71,13 @@ def _download_dir(url, path):
 
 
 def _download_data(data_dir):
+	"""Download both train and test data and store them in data_dir."""
+	os.makedirs(data_dir, exist_ok=True)
 	for phase in URLS:
-		for url in URLS[phase]:
-			print("Downloading %s" % _extract_name(url))
-			_download_dir(url, data_dir)
+		for data in URLS[phase]:
+			file = _extract_name(data)
+			print('Downloading %s' % file)
+			urllib.request.urlretrieve(data, os.path.join(data_dir, file))
 
 
 def _maybe_download(path):
