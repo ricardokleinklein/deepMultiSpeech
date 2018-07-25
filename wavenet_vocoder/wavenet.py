@@ -14,7 +14,7 @@ from deepvoice3_pytorch.modules import Embedding
 from .modules import Conv1d1x1, ResidualConv1dGLU, ConvTranspose2d
 from .mixture import sample_from_discretized_mix_logistic
 
-from .modules import *
+from .modals import *
 
 
 def _expand_global_features(B, T, g, bct=True):

@@ -19,9 +19,10 @@ from hparams import hparams
 # User is free to change SRC_SPKS and/or TARGET_SPKS. 
 # Both of them are taken from the train set, whereas the TEST_SPKS
 # are taken separately according to the database.
+# TODO: change pipeline to include all speakers automatically
 
-SRC_SPKS = ['p226', 'p227', 'p228', 'p230', 'p231', 'p233']
-TARGET_SPKS = ['p287', 'p282', 'p278', 'p277']
+SRC_SPKS = ['p226', 'p227']
+TARGET_SPKS = ['p228', 'p230', 'p231', 'p233', 'p287', 'p282', 'p278', 'p277']
 TEST_SPKS = ['p232', 'p257']
 
 SPKS = SRC_SPKS + TARGET_SPKS + TEST_SPKS
@@ -254,8 +255,8 @@ def _extract_mel(wav_path):
 def _process_utterance(out_dir, index, path_src,
 	path_target, text, speaker):
 	sr = hparams.sample_rate
-	_, mel_src, timesteps_src, dtype_src = _extract_mel(path_src)
-	audio_target, mel_target, timesteps_target, dtype_target = _extract_mel(
+	audio_src, mel_src, timesteps_src, dtype_src = _extract_mel(path_src)
+	_, mel_target, timesteps_target, dtype_target = _extract_mel(
 		path_target)
 
 	if hparams.modality == "vc":
@@ -264,23 +265,25 @@ def _process_utterance(out_dir, index, path_src,
 	# Write files to disk
 	if hparams.modality == "se":
 		if int(speaker) in TEST_ID:
-			melSpec_filename = "source-mel-test-%05d.npy" % index
-			audio_filename = "target-audio-test-%05d.npy" % index
+			audio_filename = "source-audio-test-%05d.npy" % index
+			melSpec_filename = "target-mel-test-%05d.npy" % index
 		else:
-			melSpec_filename = "source-mel-%05d.npy" % index
-			audio_filename = "target-audio-%05d.npy" % index
+			audio_filename = "source-audio-%05d.npy" % index
+			melSpec_filename = "target-mel-%05d.npy" % index
+
 	if hparams.modality == "vc":
 		if TEST_SPKS[0] in path_src or TEST_SPKS[1] in path_src:
-			melSpec_filename = "source-mel-test-%05d.npy" % index
-			audio_filename = "target-audio-test-%05d.npy" % index
+			audio_filename = "source-audio-test-%05d.npy" % index
+			melSpec_filename = "target-mel-test-%05d.npy" % index
 		else:
-			melSpec_filename = "source-mel-%05d.npy" % index
-			audio_filename = "target-audio-%05d.npy" % index
+			audio_filename = "source-audio-%05d.npy" % index
+			melSpec_filename = "target-mel-%05d.npy" % index
 
-	np.save(join(out_dir, melSpec_filename),
-		mel_src.astype(np.float32), allow_pickle=False)
 	np.save(join(out_dir, audio_filename),
-		audio_target.astype(dtype_target), allow_pickle=False)
+		audio_src.astype(dtype_src), allow_pickle=False)
+	np.save(join(out_dir, melSpec_filename),
+		mel_target.astype(np.float32), allow_pickle=False)
+	
 
 	return (audio_filename, melSpec_filename, 
 		timesteps_target, text, speaker)

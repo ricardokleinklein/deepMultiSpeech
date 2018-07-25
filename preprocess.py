@@ -9,7 +9,7 @@ source and target audio files:
 path_to_source | path_to_target | text | speaker
 
 The resulting file contains the following information:
-target audio | input melSpec | timesteps | text | speaker 
+target  input audio | output melSpec | timesteps | text | speaker 
 
 usage: preprocess.py [options] <in_dir> <out_dir>
 

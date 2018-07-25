@@ -9,6 +9,7 @@ librosa
 matplotlib
 tqdm
 nnmnkwii>=0.0.11
+wget
 
 [train]
 docopt
@@ -17,3 +18,4 @@ tensorboardX
 nnmnkwii>=0.0.11
 keras
 scikit-learn
+wget
